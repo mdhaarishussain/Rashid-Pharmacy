@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
-import { getDB, Patient, Visit, SyncLog } from '../db/mongodb';
-import { AuthRequest } from '../middleware/auth';
+import { getDB, Patient, Visit, SyncLog } from '../db/mongodb.js';
+import { AuthRequest } from '../middleware/auth.js';
 import { ObjectId } from 'mongodb';
 
 const router = Router();

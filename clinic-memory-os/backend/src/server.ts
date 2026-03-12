@@ -1,11 +1,11 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { connectMongoDB } from './db/mongodb';
-import { apiKeyAuth } from './middleware/auth';
-import patientRoutes from './routes/patients';
-import visitRoutes from './routes/visits';
-import syncRoutes from './routes/sync';
+import { connectMongoDB } from './db/mongodb.js';
+import { apiKeyAuth } from './middleware/auth.js';
+import patientRoutes from './routes/patients.js';
+import visitRoutes from './routes/visits.js';
+import syncRoutes from './routes/sync.js';
 
 dotenv.config();
 
