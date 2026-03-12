@@ -1,0 +1,22 @@
+{
+  "name": "clinic-memory-os",
+  "version": "1.0.0",
+  "description": "Homeopathic Practitioner PWA with MongoDB Cloud Sync",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "."
+  ],
+  "scripts": {
+    "dev": "concurrently \"cd backend && npm run dev\" \"npm run dev:frontend\"",
+    "dev:frontend": "vite",
+    "build": "npm run build:backend && npm run build:frontend",
+    "build:frontend": "vite build",
+    "build:backend": "cd backend && npm run build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit && cd backend && npm run typecheck"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
