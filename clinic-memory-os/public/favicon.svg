@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <rect width="32" height="32" rx="7" fill="#1b3649"/>
+  <!-- Bottle cap -->
+  <rect x="12" y="3" width="8" height="4" rx="1.8" fill="#0369a1"/>
+  <!-- Neck -->
+  <path d="M13.5 7 L11.5 12 H20.5 L18.5 7 Z" fill="#0369a1"/>
+  <!-- Body -->
+  <rect x="8" y="11.5" width="16" height="17" rx="4" fill="#0369a1"/>
+  <!-- Pills -->
+  <circle cx="13" cy="17" r="2.1" fill="rgba(255,255,255,0.75)"/>
+  <circle cx="19" cy="17" r="2.1" fill="rgba(255,255,255,0.75)"/>
+  <circle cx="16" cy="22.5" r="2.1" fill="rgba(255,255,255,0.75)"/>
+  <!-- Shine -->
+  <path d="M10.5 14 Q11 12.5 12.5 12.5" stroke="white" stroke-width="1" stroke-linecap="round" opacity="0.4"/>
+</svg>
