@@ -1,22 +1,32 @@
 import { MongoClient, Db, ObjectId } from 'mongodb';
 
 let db: Db | null = null;
+let clientPromise: Promise<MongoClient> | null = null;
 
 export const connectMongoDB = async (): Promise<void> => {
+  if (db) {
+    return;
+  }
+
   const uri = process.env.MONGODB_URI;
   if (!uri) {
     throw new Error('MONGODB_URI not set in environment variables');
   }
 
   try {
-    const client = new MongoClient(uri);
-    await client.connect();
+    if (!clientPromise) {
+      const client = new MongoClient(uri);
+      clientPromise = client.connect();
+    }
+
+    const client = await clientPromise;
     db = client.db('clinic_memory_os');
-    
+
     // Create collections if they don't exist
     await ensureCollections();
     console.log('📦 Collections initialized');
   } catch (error) {
+    clientPromise = null;
     console.error('MongoDB connection failed:', error);
     throw error;
   }

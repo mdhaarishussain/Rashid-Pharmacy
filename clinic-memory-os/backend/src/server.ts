@@ -11,6 +11,22 @@ dotenv.config();
 
 const app: Express = express();
 const PORT = process.env.PORT || 3000;
+let initPromise: Promise<void> | null = null;
+
+const ensureInitialized = async () => {
+  if (!initPromise) {
+    initPromise = connectMongoDB()
+      .then(() => {
+        console.log('✅ MongoDB connected');
+      })
+      .catch((error) => {
+        initPromise = null;
+        throw error;
+      });
+  }
+
+  await initPromise;
+};
 
 // Middleware
 app.use(cors({
@@ -23,6 +39,15 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 // Health check
 app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+app.use(async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await ensureInitialized();
+    next();
+  } catch (error) {
+    next(error);
+  }
 });
 
 // Routes
@@ -42,8 +67,7 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 // Start server
 const start = async () => {
   try {
-    await connectMongoDB();
-    console.log('✅ MongoDB connected');
+    await ensureInitialized();
 
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
@@ -55,4 +79,8 @@ const start = async () => {
   }
 };
 
-start();
+if (!process.env.VERCEL) {
+  start();
+}
+
+export default app;
