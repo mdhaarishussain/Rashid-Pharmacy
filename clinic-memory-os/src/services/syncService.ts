@@ -133,7 +133,7 @@ export const fullSync = async (
  */
 export const startBackgroundSync = (
   getLocalData: () => Promise<{ patients: Patient[]; visits: Visit[] }>,
-  onSyncComplete?: (result: { pushed: SyncResult; pulled: SyncResult }) => void
+  onSyncComplete?: (result: { pushed: SyncResult; pulled: SyncResult }) => void | Promise<void>
 ) => {
   const syncInterval = setInterval(async () => {
     // Only sync if online

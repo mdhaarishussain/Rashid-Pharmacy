@@ -392,8 +392,14 @@ export default function App() {
       const result = await fullSync(patients, visits)
       setLastSyncAt(result.pulled.timestamp)
       setSyncError(null)
-      // Rebuild search index if we pulled new data
+      // Write pulled records into local IndexedDB, then rebuild index
       if ((result.pulled.patients?.length || 0) + (result.pulled.visits?.length || 0) > 0) {
+        if (result.pulled.patients?.length) {
+          await db.patients.bulkPut(result.pulled.patients)
+        }
+        if (result.pulled.visits?.length) {
+          await db.visits.bulkPut(result.pulled.visits)
+        }
         const [allVisits, allPatients] = await Promise.all([
           db.visits.toArray(),
           db.patients.toArray(),
@@ -415,9 +421,25 @@ export default function App() {
         patients: await db.patients.toArray(),
         visits: await db.visits.toArray(),
       }),
-      (result) => {
+      async (result) => {
+        // Write pulled records into local IndexedDB
+        if (result.pulled.patients?.length) {
+          await db.patients.bulkPut(result.pulled.patients)
+        }
+        if (result.pulled.visits?.length) {
+          await db.visits.bulkPut(result.pulled.visits)
+        }
         setLastSyncAt(result.pulled.timestamp)
         setSyncError(null)
+        // Rebuild index if new data arrived
+        if ((result.pulled.patients?.length || 0) + (result.pulled.visits?.length || 0) > 0) {
+          const [allVisits, allPatients] = await Promise.all([
+            db.visits.toArray(),
+            db.patients.toArray(),
+          ])
+          buildIndex(allVisits, allPatients)
+          dispatch({ type: 'SET_SEARCH_RESULTS', results: search('') })
+        }
       }
     )
     return stop

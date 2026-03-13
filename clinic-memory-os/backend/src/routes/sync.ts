@@ -1,7 +1,6 @@
 import { Router, Response } from 'express';
 import { getDB, Patient, Visit, SyncLog } from '../db/mongodb.js';
 import { AuthRequest } from '../middleware/auth.js';
-import { ObjectId } from 'mongodb';
 
 const router = Router();
 
@@ -14,42 +13,42 @@ router.post('/pull', async (req: AuthRequest, res: Response) => {
 
     const lastSyncTimestamp = Number(lastSync) || 0;
 
-    // Fetch patients changed since lastSync
+    // Only fetch records that have local_id set (can be mapped back to Dexie)
     const patients = await db.collection<Patient>('patients')
-      .find({
-        updated_at: { $gt: lastSyncTimestamp },
-      })
+      .find({ updated_at: { $gt: lastSyncTimestamp }, local_id: { $exists: true } })
       .toArray();
 
-    // Fetch visits changed since lastSync
     const visits = await db.collection<Visit>('visits')
-      .find({
-        updated_at: { $gt: lastSyncTimestamp },
-      })
+      .find({ updated_at: { $gt: lastSyncTimestamp }, local_id: { $exists: true } })
       .toArray();
 
     // Update device sync log
     const now = Date.now();
     await db.collection<SyncLog>('sync_log').updateOne(
       { device_id: deviceId },
-      {
-        $set: {
-          last_sync: now,
-          timestamp: now,
-        },
-      },
+      { $set: { last_sync: now, timestamp: now } },
       { upsert: true }
     );
 
+    // Return data in local Dexie-compatible format so App.tsx can bulkPut directly
     res.json({
       timestamp: now,
       patients: patients.map(p => ({
-        ...p,
-        _id: p._id?.toString(),
+        id: (p as any).local_id as number,
+        name: p.name,
+        quick_note: p.quick_note || '',
+        created_at: p.created_at,
       })),
       visits: visits.map(v => ({
-        ...v,
-        _id: v._id?.toString(),
+        id: (v as any).local_id as number,
+        patient_id: (v as any).local_patient_id as number,
+        date: v.date,
+        symptoms_text: v.symptoms_text,
+        medicines_json: v.medicines_json,
+        fee_total: v.fee_total,
+        amount_paid: v.amount_paid,
+        amount_due: v.amount_due,
+        visit_number: v.visit_number,
       })),
     });
   } catch (error) {
@@ -63,7 +62,6 @@ router.post('/push', async (req: AuthRequest, res: Response) => {
   try {
     const { patients = [], visits = [] } = req.body;
 
-    // Validate arrays
     if (!Array.isArray(patients) || !Array.isArray(visits)) {
       return res.status(400).json({ error: 'Invalid sync data format' });
     }
@@ -74,102 +72,68 @@ router.post('/push', async (req: AuthRequest, res: Response) => {
 
     const db = getDB();
     const deviceId = req.deviceId!;
+    const results = { patientsUpserted: 0, visitsUpserted: 0, errors: [] as any[] };
 
-    const results = {
-      patientsUpserted: 0,
-      visitsUpserted: 0,
-      errors: [] as any[],
-    };
-
-    // Upsert patients
+    // Upsert patients — dedup by local_id (the Dexie auto-increment numeric id)
     for (const patient of patients) {
       try {
-        const { _id, ...data } = patient;
+        const localId = Number(patient.id);
+        if (!localId) continue;
         const now = Date.now();
 
-        if (_id) {
-          // Update existing (convert string _id to ObjectId)
-          const objectId = ObjectId.isValid(_id) ? new ObjectId(_id) : null;
-          if (!objectId) {
-            throw new Error('Invalid patient _id format');
-          }
-
-          await db.collection<Patient>('patients').updateOne(
-            { _id: objectId },
-            {
-              $set: {
-                name: String(data.name || '').trim().substring(0, 200),
-                quick_note: String(data.quick_note || '').trim().substring(0, 500),
-                created_at: Number(data.created_at) || now,
-                updated_at: now,
-              },
+        await db.collection('patients').updateOne(
+          { local_id: localId },
+          {
+            $set: {
+              local_id: localId,
+              name: String(patient.name || '').trim().substring(0, 200),
+              quick_note: String(patient.quick_note || '').trim().substring(0, 500),
+              created_at: Number(patient.created_at) || now,
+              updated_at: now,
             },
-            { upsert: true }
-          );
-        } else {
-          // Insert new
-          await db.collection<Patient>('patients').insertOne({
-            name: String(data.name || '').trim().substring(0, 200),
-            quick_note: String(data.quick_note || '').trim().substring(0, 500),
-            created_at: Number(data.created_at) || now,
-            updated_at: now,
-          } as any);
-        }
+          },
+          { upsert: true }
+        );
         results.patientsUpserted++;
       } catch (error) {
-        results.errors.push({
-          type: 'patient',
-          data: patient,
-          error: String(error),
-        });
+        results.errors.push({ type: 'patient', data: patient, error: String(error) });
       }
     }
 
-    // Upsert visits
+    // Upsert visits — dedup by local_id
     for (const visit of visits) {
       try {
-        const { _id, ...data } = visit;
+        const localId = Number(visit.id);
+        const localPatientId = Number(visit.patient_id);
+        if (!localId) continue;
         const now = Date.now();
 
-        const feeTotal = Number(data.fee_total) || 0;
-        const amountPaid = Number(data.amount_paid) || 0;
+        const feeTotal = Number(visit.fee_total) || 0;
+        const amountPaid = Number(visit.amount_paid) || 0;
 
-        const visitData = {
-          patient_id: String(data.patient_id || ''),
-          date: Number(data.date) || now,
-          symptoms_text: String(data.symptoms_text || '').substring(0, 5000),
-          medicines_json: Array.isArray(data.medicines_json) ? data.medicines_json : [],
-          fee_total: feeTotal,
-          amount_paid: amountPaid,
-          amount_due: feeTotal - amountPaid,
-          visit_number: Number(data.visit_number) || 1,
-          created_at: Number(data.created_at) || now,
-          updated_at: now,
-        };
-
-        if (_id) {
-          // Update existing
-          const objectId = ObjectId.isValid(_id) ? new ObjectId(_id) : null;
-          if (!objectId) {
-            throw new Error('Invalid visit _id format');
-          }
-
-          await db.collection<Visit>('visits').updateOne(
-            { _id: objectId },
-            { $set: visitData },
-            { upsert: true }
-          );
-        } else {
-          // Insert new
-          await db.collection<Visit>('visits').insertOne(visitData as any);
-        }
+        await db.collection('visits').updateOne(
+          { local_id: localId },
+          {
+            $set: {
+              local_id: localId,
+              local_patient_id: localPatientId,
+              patient_id: String(localPatientId),
+              date: Number(visit.date) || now,
+              symptoms_text: String(visit.symptoms_text || '').substring(0, 5000),
+              medicines_json: Array.isArray(visit.medicines_json) ? visit.medicines_json : [],
+              fee_total: feeTotal,
+              amount_paid: amountPaid,
+              amount_due: feeTotal - amountPaid,
+              visit_number: Number(visit.visit_number) || 1,
+              created_at: Number(visit.created_at) || now,
+              updated_at: now,
+            },
+          },
+          { upsert: true }
+        );
         results.visitsUpserted++;
       } catch (error) {
-        results.errors.push({
-          type: 'visit',
-          data: visit,
-          error: String(error),
-        });
+        results.errors.push({ type: 'visit', data: visit, error: String(error) });
       }
     }
 
@@ -177,20 +141,11 @@ router.post('/push', async (req: AuthRequest, res: Response) => {
     const now = Date.now();
     await db.collection<SyncLog>('sync_log').updateOne(
       { device_id: deviceId },
-      {
-        $set: {
-          last_sync: now,
-          timestamp: now,
-        },
-      },
+      { $set: { last_sync: now, timestamp: now } },
       { upsert: true }
     );
 
-    res.json({
-      success: true,
-      timestamp: now,
-      ...results,
-    });
+    res.json({ success: true, timestamp: now, ...results });
   } catch (error) {
     console.error('Error pushing sync:', error);
     res.status(500).json({ error: 'Sync push failed' });
@@ -202,16 +157,8 @@ router.get('/status', async (req: AuthRequest, res: Response) => {
   try {
     const db = getDB();
     const deviceId = req.deviceId!;
-
-    const syncLog = await db.collection<SyncLog>('sync_log').findOne({
-      device_id: deviceId,
-    });
-
-    res.json({
-      deviceId,
-      lastSync: syncLog?.last_sync || 0,
-      timestamp: Date.now(),
-    });
+    const syncLog = await db.collection<SyncLog>('sync_log').findOne({ device_id: deviceId });
+    res.json({ deviceId, lastSync: syncLog?.last_sync || 0, timestamp: Date.now() });
   } catch (error) {
     console.error('Error getting sync status:', error);
     res.status(500).json({ error: 'Failed to get sync status' });
