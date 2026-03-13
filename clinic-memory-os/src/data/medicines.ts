@@ -1,9 +1,12 @@
 // ─── Homeopathic medicine master list ────────────────────────────────────────
-// ~150 common homeopathic remedies, alphabetically sorted
+// Remedies (~150), Biochemic Tissue Salts (12), Mother Tinctures (24)
+
+export type MedicineType = 'remedy' | 'biochemic' | 'tincture'
 
 export interface Medicine {
   name: string
-  abbr: string // short form used on shelf label
+  abbr: string
+  type?: MedicineType // omit = 'remedy' (default)
 }
 
 /**
@@ -19,12 +22,28 @@ export function getShortCode(medicine: Medicine): string {
   return medicine.name.slice(0, 2).toUpperCase()
 }
 
-export const POTENCIES = ['6', '30', '200', '1M', '10M', 'Q', 'Ø'] as const
+// ─── Potency sets per medicine type ──────────────────────────────────────────
+
+export const REMEDY_POTENCIES = ['6', '30', '200', '1M', '10M'] as const
+export const BIOCHEMIC_POTENCIES = ['6x', '12x'] as const
+export const TINCTURE_POTENCY = ['Ø'] as const
+
+// Combined type (for backward compat if referenced elsewhere)
+export const POTENCIES = [...REMEDY_POTENCIES, ...BIOCHEMIC_POTENCIES, ...TINCTURE_POTENCY] as const
 export type Potency = (typeof POTENCIES)[number]
 
-export function isDropPotency(p: string): boolean {
-  return p === 'Q' || p === 'Ø'
+export function getMedicinePotencies(med: Medicine): readonly string[] {
+  if (med.type === 'tincture') return TINCTURE_POTENCY
+  if (med.type === 'biochemic') return BIOCHEMIC_POTENCIES
+  return REMEDY_POTENCIES
 }
+
+/** True only for mother tincture potency (Ø). Used to switch qty chips to drops. */
+export function isDropPotency(p: string): boolean {
+  return p === 'Ø'
+}
+
+// ─── Medicine list ────────────────────────────────────────────────────────────
 
 export const MEDICINES: Medicine[] = [
   { name: 'Aconitum Napellus', abbr: 'Acon' },
@@ -53,9 +72,9 @@ export const MEDICINES: Medicine[] = [
   { name: 'Bromium', abbr: 'Brom' },
   { name: 'Bryonia Alba', abbr: 'Bry' },
   { name: 'Calcarea Carbonica', abbr: 'Calc' },
-  { name: 'Calcarea Fluorica', abbr: 'Calc-f' },
-  { name: 'Calcarea Phosphorica', abbr: 'Calc-p' },
-  { name: 'Calcarea Sulphurica', abbr: 'Calc-s' },
+  { name: 'Calcarea Fluorica', abbr: 'Calc-f', type: 'biochemic' },
+  { name: 'Calcarea Phosphorica', abbr: 'Calc-p', type: 'biochemic' },
+  { name: 'Calcarea Sulphurica', abbr: 'Calc-s', type: 'biochemic' },
   { name: 'Calendula Officinalis', abbr: 'Calen' },
   { name: 'Camphora', abbr: 'Camph' },
   { name: 'Cannabis Indica', abbr: 'Cann-i' },
@@ -85,7 +104,7 @@ export const MEDICINES: Medicine[] = [
   { name: 'Eupatorium Perfoliatum', abbr: 'Eup-per' },
   { name: 'Euphrasia Officinalis', abbr: 'Euphr' },
   { name: 'Ferrum Metallicum', abbr: 'Ferr' },
-  { name: 'Ferrum Phosphoricum', abbr: 'Ferr-p' },
+  { name: 'Ferrum Phosphoricum', abbr: 'Ferr-p', type: 'biochemic' },
   { name: 'Fluoricum Acidum', abbr: 'Fl-ac' },
   { name: 'Gelsemium Sempervirens', abbr: 'Gels' },
   { name: 'Glonoinum', abbr: 'Glon' },
@@ -103,10 +122,10 @@ export const MEDICINES: Medicine[] = [
   { name: 'Kali Bromatum', abbr: 'Kali-br' },
   { name: 'Kali Carbonicum', abbr: 'Kali-c' },
   { name: 'Kali Iodatum', abbr: 'Kali-i' },
-  { name: 'Kali Muriaticum', abbr: 'Kali-m' },
+  { name: 'Kali Muriaticum', abbr: 'Kali-m', type: 'biochemic' },
   { name: 'Kali Nitricum', abbr: 'Kali-n' },
-  { name: 'Kali Phosphoricum', abbr: 'Kali-p' },
-  { name: 'Kali Sulphuricum', abbr: 'Kali-s' },
+  { name: 'Kali Phosphoricum', abbr: 'Kali-p', type: 'biochemic' },
+  { name: 'Kali Sulphuricum', abbr: 'Kali-s', type: 'biochemic' },
   { name: 'Kreosotum', abbr: 'Kreos' },
   { name: 'Lac Caninum', abbr: 'Lac-c' },
   { name: 'Lachesis Mutus', abbr: 'Lach' },
@@ -115,7 +134,7 @@ export const MEDICINES: Medicine[] = [
   { name: 'Lycopodium Clavatum', abbr: 'Lyc' },
   { name: 'Magnesia Carbonica', abbr: 'Mag-c' },
   { name: 'Magnesia Muriatica', abbr: 'Mag-m' },
-  { name: 'Magnesia Phosphorica', abbr: 'Mag-p' },
+  { name: 'Magnesia Phosphorica', abbr: 'Mag-p', type: 'biochemic' },
   { name: 'Medorrhinum', abbr: 'Med' },
   { name: 'Mercurius Corrosivus', abbr: 'Merc-c' },
   { name: 'Mercurius Solubilis', abbr: 'Merc' },
@@ -123,9 +142,9 @@ export const MEDICINES: Medicine[] = [
   { name: 'Moschus', abbr: 'Mosch' },
   { name: 'Muriaticum Acidum', abbr: 'Mur-ac' },
   { name: 'Natrum Carbonicum', abbr: 'Nat-c' },
-  { name: 'Natrum Muriaticum', abbr: 'Nat-m' },
-  { name: 'Natrum Phosphoricum', abbr: 'Nat-p' },
-  { name: 'Natrum Sulphuricum', abbr: 'Nat-s' },
+  { name: 'Natrum Muriaticum', abbr: 'Nat-m', type: 'biochemic' },
+  { name: 'Natrum Phosphoricum', abbr: 'Nat-p', type: 'biochemic' },
+  { name: 'Natrum Sulphuricum', abbr: 'Nat-s', type: 'biochemic' },
   { name: 'Nitricum Acidum', abbr: 'Nit-ac' },
   { name: 'Nux Moschata', abbr: 'Nux-m' },
   { name: 'Nux Vomica', abbr: 'Nux-v' },
@@ -153,7 +172,7 @@ export const MEDICINES: Medicine[] = [
   { name: 'Secale Cornutum', abbr: 'Sec' },
   { name: 'Selenium', abbr: 'Sel' },
   { name: 'Sepia Officinalis', abbr: 'Sep' },
-  { name: 'Silicea', abbr: 'Sil' },
+  { name: 'Silicea', abbr: 'Sil', type: 'biochemic' },
   { name: 'Spigelia Anthelmia', abbr: 'Spig' },
   { name: 'Spongia Tosta', abbr: 'Spong' },
   { name: 'Squilla Maritima', abbr: 'Squil' },
@@ -176,31 +195,31 @@ export const MEDICINES: Medicine[] = [
   { name: 'Viscum Album', abbr: 'Visc' },
   { name: 'Zincum Metallicum', abbr: 'Zinc' },
 
-  // ─── Common tinctures / drops (Mother Tincture base) ──────────────────────
-  { name: 'Alfalfa', abbr: 'Alf' },
-  { name: 'Avena Sativa', abbr: 'Aven' },
-  { name: 'Berberis Aquifolium', abbr: 'Berb-aq' },
-  { name: 'Cactus Grandiflorus', abbr: 'Cact' },
-  { name: 'Ceanothus Americanus', abbr: 'Cean' },
-  { name: 'Chelidonium Majus', abbr: 'Chel' },
-  { name: 'Cholesterinum', abbr: 'Chol' },
-  { name: 'Crataegus Oxyacantha', abbr: 'Crat' },
-  { name: 'Echinacea Angustifolia', abbr: 'Echi' },
-  { name: 'Helonias Dioica', abbr: 'Helon' },
-  { name: 'Hydrocotyle Asiatica', abbr: 'Hydc' },
-  { name: 'Justicia Adhatoda', abbr: 'Just' },
-  { name: 'Lycopus Virginicus', abbr: 'Lycp' },
-  { name: 'Mitchella Repens', abbr: 'Mitch' },
-  { name: 'Mullein Oil', abbr: 'Muln' },
-  { name: 'Passiflora Incarnata', abbr: 'Pass' },
-  { name: 'Phaseolus Nanus', abbr: 'Phas' },
-  { name: 'Rauwolfia Serpentina', abbr: 'Rauw' },
-  { name: 'Sarsaparilla Officinalis', abbr: 'Sars' },
-  { name: 'Solidago Virgaurea', abbr: 'Solid' },
-  { name: 'Thlaspi Bursa Pastoris', abbr: 'Thlsp' },
-  { name: 'Tribulus Terrestris', abbr: 'Trib' },
-  { name: 'Viburnum Opulus', abbr: 'Vib' },
-  { name: 'Withania Somnifera', abbr: 'With' },
+  // ─── Mother Tinctures (Ø — dosage in drops) ──────────────────────────────
+  { name: 'Alfalfa', abbr: 'Alf', type: 'tincture' },
+  { name: 'Avena Sativa', abbr: 'Aven', type: 'tincture' },
+  { name: 'Berberis Aquifolium', abbr: 'Berb-aq', type: 'tincture' },
+  { name: 'Cactus Grandiflorus', abbr: 'Cact', type: 'tincture' },
+  { name: 'Ceanothus Americanus', abbr: 'Cean', type: 'tincture' },
+  { name: 'Chelidonium Majus', abbr: 'Chel', type: 'tincture' },
+  { name: 'Cholesterinum', abbr: 'Chol', type: 'tincture' },
+  { name: 'Crataegus Oxyacantha', abbr: 'Crat', type: 'tincture' },
+  { name: 'Echinacea Angustifolia', abbr: 'Echi', type: 'tincture' },
+  { name: 'Helonias Dioica', abbr: 'Helon', type: 'tincture' },
+  { name: 'Hydrocotyle Asiatica', abbr: 'Hydc', type: 'tincture' },
+  { name: 'Justicia Adhatoda', abbr: 'Just', type: 'tincture' },
+  { name: 'Lycopus Virginicus', abbr: 'Lycp', type: 'tincture' },
+  { name: 'Mitchella Repens', abbr: 'Mitch', type: 'tincture' },
+  { name: 'Mullein Oil', abbr: 'Muln', type: 'tincture' },
+  { name: 'Passiflora Incarnata', abbr: 'Pass', type: 'tincture' },
+  { name: 'Phaseolus Nanus', abbr: 'Phas', type: 'tincture' },
+  { name: 'Rauwolfia Serpentina', abbr: 'Rauw', type: 'tincture' },
+  { name: 'Sarsaparilla Officinalis', abbr: 'Sars', type: 'tincture' },
+  { name: 'Solidago Virgaurea', abbr: 'Solid', type: 'tincture' },
+  { name: 'Thlaspi Bursa Pastoris', abbr: 'Thlsp', type: 'tincture' },
+  { name: 'Tribulus Terrestris', abbr: 'Trib', type: 'tincture' },
+  { name: 'Viburnum Opulus', abbr: 'Vib', type: 'tincture' },
+  { name: 'Withania Somnifera', abbr: 'With', type: 'tincture' },
 ]
 
 // Pre-built alphabetical groups for the shelf display

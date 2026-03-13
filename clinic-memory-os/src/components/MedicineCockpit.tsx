@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { VariableSizeList, type ListChildComponentProps } from 'react-window'
 import type { MedicineSlot, AppAction } from '../state/useAppState'
 import type { Visit } from '../db/db'
-import { SHELF_ROWS, POTENCIES, type ShelfRow, getShortCode, isDropPotency } from '../data/medicines'
+import { SHELF_ROWS, type ShelfRow, getShortCode, isDropPotency, getMedicinePotencies } from '../data/medicines'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,9 +22,6 @@ const FOOD_CHIPS = ['AC', 'PC'] as const
 const DAYS_CHIPS = [3, 5, 7, 10] as const
 const PILL_CHIPS = [1, 2, 3, 6] as const
 const DROP_CHIPS = [5, 10, 15, 20] as const
-
-const STANDARD_POTENCIES = POTENCIES.filter((p) => !isDropPotency(p))
-const TINCTURE_POTENCIES = POTENCIES.filter((p) => isDropPotency(p))
 
 function chipCls(active: boolean): string {
   return (
@@ -331,7 +328,7 @@ function SlotRow({
 
 const ROW_HEIGHTS: Record<string, number> = {
   header: 40,
-  medicine: 112,
+  medicine: 82,
 }
 
 function getRowHeight(row: ShelfRow): number {
@@ -383,10 +380,11 @@ function ShelfRowRenderer({
         <div className="text-xs text-muted">{med.abbr}</div>
       </div>
 
-      {/* Potency buttons — standard row + tincture row */}
-      <div className="flex flex-col gap-1 shrink-0">
-        <div className="flex gap-1">
-          {STANDARD_POTENCIES.map((p) => (
+      {/* Potency buttons — type-appropriate set for this medicine */}
+      <div className="flex gap-1 shrink-0">
+        {getMedicinePotencies(med).map((p) => {
+          const isTinc = isDropPotency(p)
+          return (
             <button
               key={p}
               onClick={() =>
@@ -396,29 +394,16 @@ function ShelfRowRenderer({
                   medicine: { name: med.name, potency: p },
                 })
               }
-              className="text-sm bg-panel hover:bg-accent hover:text-panel border-2 border-border hover:border-accent active:scale-95 px-1.5 py-2 rounded-lg transition-all font-mono font-bold min-w-[38px] text-center shadow-sm text-primary"
-            >
-              {p}
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-1">
-          {TINCTURE_POTENCIES.map((p) => (
-            <button
-              key={p}
-              onClick={() =>
-                dispatch({
-                  type: 'SET_SLOT_MEDICINE',
-                  slotIndex: activeSlotIndex,
-                  medicine: { name: med.name, potency: p },
-                })
+              className={
+                isTinc
+                  ? 'text-sm bg-panel hover:bg-sky-500 hover:text-white border-2 border-sky-300/40 hover:border-sky-500 active:scale-95 px-1.5 py-2 rounded-lg transition-all font-mono font-bold min-w-[46px] text-center shadow-sm text-sky-400'
+                  : 'text-sm bg-panel hover:bg-accent hover:text-panel border-2 border-border hover:border-accent active:scale-95 px-1.5 py-2 rounded-lg transition-all font-mono font-bold min-w-[38px] text-center shadow-sm text-primary'
               }
-              className="text-sm bg-panel hover:bg-sky-500 hover:text-white border-2 border-sky-300/40 hover:border-sky-500 active:scale-95 px-1.5 py-2 rounded-lg transition-all font-mono font-bold min-w-[46px] text-center shadow-sm text-sky-400"
             >
-              💧{p}
+              {isTinc ? '💧' : ''}{p}
             </button>
-          ))}
-        </div>
+          )
+        })}
       </div>
     </div>
   )
