@@ -122,11 +122,11 @@ cd backend && npm install
 # Terminal 1: Backend (http://localhost:3000)
 cd backend && npm run dev
 
-# Terminal 2: Frontend (http://localhost:5174)
-npm run dev:frontend
-
-# Or start both together
+# Terminal 2: Frontend (http://localhost:5173)
 npm run dev
+
+# Frontend uses .env → VITE_API_URL=http://localhost:3000/api
+# Backend uses backend/.env → CORS allows localhost:5173
 ```
 
 ### Production Deployment to Vercel

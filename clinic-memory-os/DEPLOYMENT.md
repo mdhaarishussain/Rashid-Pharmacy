@@ -20,10 +20,10 @@ rashid-pharmacy            rashid-pharmacy-api        cluster: rashidpharmacy
 - Code pushed to GitHub (already done ✅)
 - MongoDB Atlas cluster already running at `rashidpharmacy.ntuskig.mongodb.net`
 
-**Your credentials (keep these secret):**
+**Your credentials (keep these secret — never commit to git):**
 ```
-MONGODB_URI  = mongodb+srv://mdhaarishussain86_db_user:<password>@rashidpharmacy.ntuskig.mongodb.net/clinic_memory_os?appName=Rashidpharmacy
-API_KEY      = clinic_secret_key_2026_RashidPharmacy_saood_medical
+MONGODB_URI  = mongodb+srv://<username>:<password>@rashidpharmacy.ntuskig.mongodb.net/clinic_memory_os?appName=Rashidpharmacy
+API_KEY      = <your-secure-api-key>
 ```
 
 ---
@@ -73,8 +73,8 @@ Scroll down to **"Environment Variables"** and add these one by one:
 
 | Name | Value |
 |---|---|
-| `MONGODB_URI` | `mongodb+srv://mdhaarishussain86_db_user:n2Y81F8qsIKnMmjZ@rashidpharmacy.ntuskig.mongodb.net/clinic_memory_os?appName=Rashidpharmacy` |
-| `API_KEY` | `clinic_secret_key_2026_RashidPharmacy_saood_medical` |
+| `MONGODB_URI` | Your MongoDB Atlas connection string (from Atlas → Connect → Drivers) |
+| `API_KEY` | A strong random API key (e.g. generate with `openssl rand -hex 32`) |
 | `CORS_ORIGIN` | `https://rashid-pharmacy.vercel.app` |
 | `NODE_ENV` | `production` |
 
@@ -105,23 +105,15 @@ If you see this, the backend is live and MongoDB is connected. ✅
 
 ## Step 3 — Update Frontend with Backend URL
 
-Now that you have the actual backend URL, update the frontend environment file.
+Now that you have the actual backend URL, set the frontend environment variables in Vercel.
 
-Open `clinic-memory-os/.env.production` and update:
-```env
-VITE_API_URL=https://rashid-pharmacy-api.vercel.app/api
-VITE_API_KEY=clinic_secret_key_2026_RashidPharmacy_saood_medical
-```
+> ⚠️ **Never commit `.env.production` to git** — it contains secrets. Set these in Vercel Dashboard instead.
+
+When configuring the frontend project in Step 4, add these environment variables in Vercel:
+- `VITE_API_URL` = `https://rashid-pharmacy-api.vercel.app/api`
+- `VITE_API_KEY` = Same value as `API_KEY` in your backend (must match exactly)
 
 > Replace `rashid-pharmacy-api` with your actual Vercel backend project name if different.
-
-Commit and push:
-```bash
-cd "C:\Users\mdhaa\Desktop\Rashid Pharmacy\clinic-memory-os"
-git add .env.production
-git commit -m "Set production backend URL"
-git push
-```
 
 ---
 
@@ -148,7 +140,7 @@ git push
 | Name | Value |
 |---|---|
 | `VITE_API_URL` | `https://rashid-pharmacy-api.vercel.app/api` |
-| `VITE_API_KEY` | `clinic_secret_key_2026_RashidPharmacy_saood_medical` |
+| `VITE_API_KEY` | Same API key as backend (must match exactly) |
 
 ### 4d. Deploy
 
@@ -191,7 +183,7 @@ Expected: `{ "error": "API key is required" }` (401 status)
 ```powershell
 Invoke-RestMethod `
   -Uri "https://rashid-pharmacy-api.vercel.app/api/patients" `
-  -Headers @{ "X-API-Key" = "clinic_secret_key_2026_RashidPharmacy_saood_medical"; "X-Device-ID" = "test-device-001" }
+  -Headers @{ "X-API-Key" = "<your-api-key>"; "X-Device-ID" = "test-device-001" }
 ```
 Expected: `[]` (empty array, or list of patients)
 
@@ -245,7 +237,7 @@ Vercel auto-deploys both projects on every push to `main`. No manual steps neede
 
 ### "API key is invalid" (403)
 - `VITE_API_KEY` in frontend does not match `API_KEY` in backend
-- Both must be: `clinic_secret_key_2026_RashidPharmacy_saood_medical`
+- Both must match exactly (use the same value in backend and frontend)
 
 ### Patients not syncing between devices
 1. Open browser DevTools → **Console** tab

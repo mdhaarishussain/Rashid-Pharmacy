@@ -36,6 +36,21 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
+// Root - HTML page so it's visible in browser (API has no app UI)
+app.get('/', (req: Request, res: Response) => {
+  res.type('html').send(`
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Clinic Memory OS API</title></head>
+<body style="font-family:sans-serif;max-width:600px;margin:40px auto;padding:20px;background:#f5f5f5;">
+  <h1>Clinic Memory OS API</h1>
+  <p>This is the backend. Use the <strong>frontend app</strong> at:</p>
+  <p><a href="http://localhost:5173">http://localhost:5173</a></p>
+  <hr>
+  <p><strong>Endpoints:</strong> <code>/api/health</code> <code>/api/patients</code> <code>/api/visits</code> <code>/api/sync</code></p>
+</body></html>
+  `);
+});
+
 // Health check
 app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

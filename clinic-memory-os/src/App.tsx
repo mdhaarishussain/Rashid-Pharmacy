@@ -9,6 +9,7 @@ import TimelinePanel from './components/TimelinePanel'
 import MedicineCockpit from './components/MedicineCockpit'
 import ClosurePanel from './components/ClosurePanel'
 import MigrationModal from './components/MigrationModal'
+import { fullSync, startBackgroundSync } from './services/syncService'
 
 // ─── Live clock — updates every 30 s ─────────────────────────────────────────
 
@@ -30,6 +31,47 @@ function LiveClock() {
       {now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
     </span>
   )
+}
+
+// ─── Sync status — shows when data last synced to cloud ─────────────────────
+function SyncStatus({
+  lastSyncAt,
+  isSyncing,
+  error,
+  onSyncNow,
+}: {
+  lastSyncAt: number | null
+  isSyncing: boolean
+  error: string | null
+  onSyncNow: () => void
+}) {
+  const label = isSyncing
+    ? 'Syncing…'
+    : error
+      ? 'Sync failed'
+      : lastSyncAt
+        ? `Synced ${formatSyncTime(lastSyncAt)}`
+        : 'Not synced'
+  const color = error ? 'text-red-600' : lastSyncAt ? 'text-success' : 'text-muted'
+  return (
+    <div className="flex items-center gap-2" title={error || undefined}>
+      <span className={`text-xs font-medium ${color}`}>{label}</span>
+      <button
+        onClick={onSyncNow}
+        disabled={isSyncing}
+        className="text-xs px-2 py-1 rounded bg-card hover:bg-accent/20 border border-border text-muted hover:text-accent disabled:opacity-50 transition-colors"
+      >
+        Sync now
+      </button>
+    </div>
+  )
+}
+
+function formatSyncTime(ms: number): string {
+  const sec = Math.floor((Date.now() - ms) / 1000)
+  if (sec < 60) return 'just now'
+  if (sec < 3600) return `${Math.floor(sec / 60)}m ago`
+  return `${Math.floor(sec / 3600)}h ago`
 }
 
 // ─── Tutorial modal ───────────────────────────────────────────────────────────
@@ -264,6 +306,9 @@ export default function App() {
   const [searchResetKey, setSearchResetKey] = useState(0)
   const [activeMobileTab, setActiveMobileTab] = useState<'patients' | 'medicines' | 'payment'>('medicines')
   const prevSavedAtRef = useRef<number | null>(null)
+  const [lastSyncAt, setLastSyncAt] = useState<number | null>(null)
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [syncError, setSyncError] = useState<string | null>(null)
 
   // ── Refresh timeline after autosave updates index ──────────────────────────
   useEffect(() => {
@@ -331,6 +376,53 @@ export default function App() {
     dispatch,
   })
 
+  // ── Background sync (every 30s when online) ──────────────────────────────────
+  const runSync = useCallback(async () => {
+    if (!navigator.onLine) {
+      setSyncError('Offline')
+      return
+    }
+    setIsSyncing(true)
+    setSyncError(null)
+    try {
+      const [patients, visits] = await Promise.all([
+        db.patients.toArray(),
+        db.visits.toArray(),
+      ])
+      const result = await fullSync(patients, visits)
+      setLastSyncAt(result.pulled.timestamp)
+      setSyncError(null)
+      // Rebuild search index if we pulled new data
+      if ((result.pulled.patients?.length || 0) + (result.pulled.visits?.length || 0) > 0) {
+        const [allVisits, allPatients] = await Promise.all([
+          db.visits.toArray(),
+          db.patients.toArray(),
+        ])
+        buildIndex(allVisits, allPatients)
+        dispatch({ type: 'SET_SEARCH_RESULTS', results: search(state.searchQuery) })
+      }
+    } catch (err) {
+      setSyncError(err instanceof Error ? err.message : 'Sync failed')
+    } finally {
+      setIsSyncing(false)
+    }
+  }, [dispatch, state.searchQuery])
+
+  useEffect(() => {
+    if (!indexReady) return
+    const stop = startBackgroundSync(
+      async () => ({
+        patients: await db.patients.toArray(),
+        visits: await db.visits.toArray(),
+      }),
+      (result) => {
+        setLastSyncAt(result.pulled.timestamp)
+        setSyncError(null)
+      }
+    )
+    return stop
+  }, [indexReady])
+
   // ── Visit count + last visit date ──────────────────────────────────────────
   const patientVisitCount = state.patientVisits.length
   const lastVisitDate = state.patientVisits.length > 0 ? state.patientVisits[0].date : null
@@ -379,6 +471,12 @@ export default function App() {
         </div>
         <div className="flex items-center gap-3">
           <LiveClock />
+          <SyncStatus
+            lastSyncAt={lastSyncAt}
+            isSyncing={isSyncing}
+            error={syncError}
+            onSyncNow={runSync}
+          />
           <button
             id="tutorial-import-history"
             onClick={() => setShowMigration(true)}
