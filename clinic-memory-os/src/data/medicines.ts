@@ -105,6 +105,7 @@ export const MEDICINES: Medicine[] = [
   { name: 'Euphrasia Officinalis', abbr: 'Euphr' },
   { name: 'Ferrum Metallicum', abbr: 'Ferr' },
   { name: 'Ferrum Phosphoricum', abbr: 'Ferr-p', type: 'biochemic' },
+  { name: 'Five Phos', abbr: '5Phos', type: 'biochemic' },
   { name: 'Fluoricum Acidum', abbr: 'Fl-ac' },
   { name: 'Gelsemium Sempervirens', abbr: 'Gels' },
   { name: 'Glonoinum', abbr: 'Glon' },
