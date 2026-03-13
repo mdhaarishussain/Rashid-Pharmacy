@@ -132,7 +132,7 @@ export const fullSync = async (
  * Background sync interval (runs every 30 seconds if online)
  */
 export const startBackgroundSync = (
-  getLocalData: () => { patients: Patient[]; visits: Visit[] },
+  getLocalData: () => Promise<{ patients: Patient[]; visits: Visit[] }>,
   onSyncComplete?: (result: { pushed: SyncResult; pulled: SyncResult }) => void
 ) => {
   const syncInterval = setInterval(async () => {
@@ -143,7 +143,7 @@ export const startBackgroundSync = (
     }
 
     try {
-      const { patients, visits } = getLocalData();
+      const { patients, visits } = await getLocalData();
       const result = await fullSync(patients, visits);
       onSyncComplete?.(result);
     } catch (error) {
