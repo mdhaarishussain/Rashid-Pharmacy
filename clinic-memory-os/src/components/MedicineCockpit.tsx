@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { VariableSizeList, type ListChildComponentProps } from 'react-window'
 import type { MedicineSlot, AppAction } from '../state/useAppState'
 import type { Visit } from '../db/db'
-import { SHELF_ROWS, POTENCIES, type ShelfRow, getShortCode } from '../data/medicines'
+import { SHELF_ROWS, POTENCIES, type ShelfRow, getShortCode, isDropPotency } from '../data/medicines'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -13,6 +13,26 @@ interface Props {
   activePatient: { id?: number; name: string } | null
   draft: { visit_number: number } | null
   dispatch: React.Dispatch<AppAction>
+}
+
+// ─── Dosage chip constants ────────────────────────────────────────────────────
+
+const FREQ_CHIPS = ['OD', 'BD', 'TD', 'QD', 'HS'] as const
+const FOOD_CHIPS = ['AC', 'PC'] as const
+const DAYS_CHIPS = [3, 5, 7, 10] as const
+const PILL_CHIPS = [1, 2, 3, 6] as const
+const DROP_CHIPS = [5, 10, 15, 20] as const
+
+const STANDARD_POTENCIES = POTENCIES.filter((p) => !isDropPotency(p))
+const TINCTURE_POTENCIES = POTENCIES.filter((p) => isDropPotency(p))
+
+function chipCls(active: boolean): string {
+  return (
+    'text-xs px-1.5 py-0.5 rounded-md font-semibold border transition-colors shrink-0 ' +
+    (active
+      ? 'bg-accent text-panel border-accent'
+      : 'bg-surface text-muted border-border hover:border-accent hover:text-accent')
+  )
 }
 
 // ─── MedicineSlots ────────────────────────────────────────────────────────────
@@ -75,9 +95,24 @@ function MedicineSlots({
             {lastVisit.medicines_json.map((m, i) => (
               <span
                 key={i}
-                className="text-sm bg-panel border border-border px-2.5 py-1 rounded-lg text-primary font-medium shadow-sm"
+                className="text-sm bg-panel border border-border px-2.5 py-1 rounded-lg text-primary font-medium shadow-sm inline-block"
               >
-                {m.name.split(' ')[0]} <span className="text-accent font-semibold">{m.potency}</span>
+                {m.name.split(' ')[0]}{' '}
+                <span className={`font-semibold ${isDropPotency(m.potency) ? 'text-sky-400' : 'text-accent'}`}>
+                  {isDropPotency(m.potency) ? '💧' : ''}{m.potency}
+                </span>
+                {(m.freq || m.food || m.days || m.qty) && (
+                  <span className="block text-xs text-muted font-mono mt-0.5">
+                    {[
+                      m.freq,
+                      m.food,
+                      m.days && `${m.days}d`,
+                      m.qty && `${m.qty}${isDropPotency(m.potency) ? '💧' : 'p'}`,
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                  </span>
+                )}
               </span>
             ))}
           </div>
@@ -129,17 +164,22 @@ function SlotRow({
   isActive: boolean
   dispatch: React.Dispatch<AppAction>
 }) {
+  const med = slot.medicine
+  const isTincture = med ? isDropPotency(med.potency) : false
+  const qtyCh = isTincture ? DROP_CHIPS : PILL_CHIPS
+
   return (
     <div
-      className={`flex items-center gap-2 px-3 py-3 rounded-xl cursor-pointer transition-all ${
+      className={`flex items-start gap-2 px-3 py-3 rounded-xl cursor-pointer transition-all ${
         isActive
           ? 'border-2 border-accent bg-accent/10 shadow-xl shadow-accent/20 ring-4 ring-accent/30 ring-offset-1'
           : 'border border-border bg-panel hover:border-accent/50 hover:bg-card shadow-sm'
       }`}
       onClick={() => dispatch({ type: 'SET_ACTIVE_SLOT', index })}
     >
+      {/* Slot number badge */}
       <span
-        className={`flex items-center justify-center rounded-full font-black shrink-0 transition-all ${
+        className={`flex items-center justify-center rounded-full font-black shrink-0 mt-0.5 transition-all ${
           isActive
             ? 'w-8 h-8 text-base bg-accent text-white shadow-md shadow-accent/40'
             : 'w-6 h-6 text-sm text-muted bg-card border border-border'
@@ -148,29 +188,121 @@ function SlotRow({
         {index + 1}
       </span>
 
-      {slot.medicine ? (
-        <div className="flex-1 flex items-center gap-2 min-w-0">
+      {med ? (
+        <div className="flex-1 flex items-center flex-wrap gap-1 min-w-0">
+          {/* Shortcode badge */}
           <span className="text-xs font-black text-accent bg-accent/10 border border-accent/25 px-1.5 py-0.5 rounded font-mono shrink-0">
-            {getShortCode({ name: slot.medicine.name, abbr: '' })}
+            {getShortCode({ name: med.name, abbr: '' })}
           </span>
-          <span className="text-base text-primary font-semibold truncate">{slot.medicine.name}</span>
-          <span className="text-sm bg-accent/10 border border-accent/30 px-2 py-0.5 rounded-md font-bold text-accent shrink-0">
-            {slot.medicine.potency}
+
+          {/* Medicine name */}
+          <span className="text-base text-primary font-semibold truncate max-w-[10rem] shrink-0">
+            {med.name}
           </span>
+
+          {/* Potency badge */}
+          <span
+            className={`text-sm px-2 py-0.5 rounded-md font-bold shrink-0 ${
+              isTincture
+                ? 'bg-sky-500/10 border border-sky-400/30 text-sky-400'
+                : 'bg-accent/10 border border-accent/30 text-accent'
+            }`}
+          >
+            {isTincture ? '💧' : ''}{med.potency}
+          </span>
+
+          {/* ── Frequency chips ── */}
+          <span className="text-border self-center text-xs select-none px-0.5">·</span>
+          {FREQ_CHIPS.map((f) => (
+            <button
+              key={f}
+              onClick={(e) => {
+                e.stopPropagation()
+                dispatch({
+                  type: 'UPDATE_SLOT_MEDICINE',
+                  slotIndex: index,
+                  patch: { freq: med.freq === f ? undefined : f },
+                })
+              }}
+              className={chipCls(med.freq === f)}
+            >
+              {f}
+            </button>
+          ))}
+
+          {/* ── Food timing chips ── */}
+          <span className="text-border self-center text-xs select-none px-0.5">·</span>
+          {FOOD_CHIPS.map((f) => (
+            <button
+              key={f}
+              onClick={(e) => {
+                e.stopPropagation()
+                dispatch({
+                  type: 'UPDATE_SLOT_MEDICINE',
+                  slotIndex: index,
+                  patch: { food: med.food === f ? undefined : f },
+                })
+              }}
+              className={chipCls(med.food === f)}
+            >
+              {f}
+            </button>
+          ))}
+
+          {/* ── Days chips ── */}
+          <span className="text-border self-center text-xs select-none px-0.5">·</span>
+          {DAYS_CHIPS.map((d) => (
+            <button
+              key={d}
+              onClick={(e) => {
+                e.stopPropagation()
+                dispatch({
+                  type: 'UPDATE_SLOT_MEDICINE',
+                  slotIndex: index,
+                  patch: { days: med.days === d ? undefined : d },
+                })
+              }}
+              className={chipCls(med.days === d)}
+            >
+              {d}d
+            </button>
+          ))}
+
+          {/* ── Qty chips (pills or drops) ── */}
+          <span className="text-border self-center text-xs select-none px-0.5">·</span>
+          {qtyCh.map((n) => (
+            <button
+              key={n}
+              onClick={(e) => {
+                e.stopPropagation()
+                dispatch({
+                  type: 'UPDATE_SLOT_MEDICINE',
+                  slotIndex: index,
+                  patch: { qty: med.qty === n ? undefined : n },
+                })
+              }}
+              className={chipCls(med.qty === n)}
+            >
+              {isTincture ? '💧' : ''}{n}{isTincture ? '' : 'p'}
+            </button>
+          ))}
         </div>
       ) : (
-        <span className={`flex-1 text-base ${isActive ? 'text-accent font-medium' : 'text-muted'} italic`}>
+        <span
+          className={`flex-1 text-base mt-0.5 ${isActive ? 'text-accent font-medium' : 'text-muted'} italic`}
+        >
           {isActive ? 'Select from shelf ↓' : 'Empty'}
         </span>
       )}
 
-      {slot.medicine && (
+      {/* Clear medicine button */}
+      {med && (
         <button
           onClick={(e) => {
             e.stopPropagation()
             dispatch({ type: 'CLEAR_SLOT', slotIndex: index })
           }}
-          className="shrink-0 text-muted hover:text-danger transition-colors ml-1"
+          className="shrink-0 text-muted hover:text-danger transition-colors ml-1 mt-0.5"
         >
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -178,12 +310,13 @@ function SlotRow({
         </button>
       )}
 
+      {/* Remove slot button */}
       <button
         onClick={(e) => {
           e.stopPropagation()
           dispatch({ type: 'REMOVE_SLOT', slotIndex: index })
         }}
-        className="shrink-0 text-border hover:text-danger transition-colors"
+        className="shrink-0 text-border hover:text-danger transition-colors mt-0.5"
         title="Remove slot"
       >
         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -198,7 +331,7 @@ function SlotRow({
 
 const ROW_HEIGHTS: Record<string, number> = {
   header: 40,
-  medicine: 82,
+  medicine: 112,
 }
 
 function getRowHeight(row: ShelfRow): number {
@@ -233,11 +366,7 @@ function ShelfRowRenderer({
 
   const med = row.medicine
   const shortCode = getShortCode(med)
-
-  // Highlight matching text
-  const nameDisplay = shelfQuery
-    ? highlightMatch(med.name, shelfQuery)
-    : med.name
+  const nameDisplay = shelfQuery ? highlightMatch(med.name, shelfQuery) : med.name
 
   return (
     <div
@@ -248,26 +377,48 @@ function ShelfRowRenderer({
       <div className="w-9 h-9 rounded-lg bg-accent/10 border border-accent/25 flex items-center justify-center shrink-0">
         <span className="text-xs font-black text-accent tracking-tight">{shortCode}</span>
       </div>
+
       <div className="flex-1 min-w-0">
         <div className="text-sm text-primary font-medium truncate leading-snug">{nameDisplay}</div>
         <div className="text-xs text-muted">{med.abbr}</div>
       </div>
-      <div className="flex gap-1 shrink-0">
-        {POTENCIES.map((p) => (
-          <button
-            key={p}
-            onClick={() =>
-              dispatch({
-                type: 'SET_SLOT_MEDICINE',
-                slotIndex: activeSlotIndex,
-                medicine: { name: med.name, potency: p },
-              })
-            }
-            className="text-sm bg-panel hover:bg-accent hover:text-panel border-2 border-border hover:border-accent active:scale-95 px-1.5 py-3 rounded-lg transition-all font-mono font-bold min-w-[42px] text-center shadow-sm text-primary"
-          >
-            {p}
-          </button>
-        ))}
+
+      {/* Potency buttons — standard row + tincture row */}
+      <div className="flex flex-col gap-1 shrink-0">
+        <div className="flex gap-1">
+          {STANDARD_POTENCIES.map((p) => (
+            <button
+              key={p}
+              onClick={() =>
+                dispatch({
+                  type: 'SET_SLOT_MEDICINE',
+                  slotIndex: activeSlotIndex,
+                  medicine: { name: med.name, potency: p },
+                })
+              }
+              className="text-sm bg-panel hover:bg-accent hover:text-panel border-2 border-border hover:border-accent active:scale-95 px-1.5 py-2 rounded-lg transition-all font-mono font-bold min-w-[38px] text-center shadow-sm text-primary"
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1">
+          {TINCTURE_POTENCIES.map((p) => (
+            <button
+              key={p}
+              onClick={() =>
+                dispatch({
+                  type: 'SET_SLOT_MEDICINE',
+                  slotIndex: activeSlotIndex,
+                  medicine: { name: med.name, potency: p },
+                })
+              }
+              className="text-sm bg-panel hover:bg-sky-500 hover:text-white border-2 border-sky-300/40 hover:border-sky-500 active:scale-95 px-1.5 py-2 rounded-lg transition-all font-mono font-bold min-w-[46px] text-center shadow-sm text-sky-400"
+            >
+              💧{p}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -294,7 +445,6 @@ export default function MedicineCockpit(props: Props) {
   const [shelfQuery, setShelfQuery] = useState('')
   const shelfDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Filter shelf rows by query
   const [visibleRows, setVisibleRows] = useState<ShelfRow[]>(SHELF_ROWS)
 
   const handleShelfSearch = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -328,7 +478,6 @@ export default function MedicineCockpit(props: Props) {
     }, 100)
   }, [])
 
-  // ResizeObserver for shelf height
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
@@ -338,7 +487,6 @@ export default function MedicineCockpit(props: Props) {
     return () => ro.disconnect()
   }, [])
 
-  // Reset list cache when rows change
   useEffect(() => {
     listRef.current?.resetAfterIndex(0)
   }, [visibleRows])

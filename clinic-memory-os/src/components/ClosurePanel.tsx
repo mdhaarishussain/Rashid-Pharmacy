@@ -67,10 +67,10 @@ function SavedIndicator({ savedAt }: { savedAt: number | null }) {
 // ─── Quick symptoms ───────────────────────────────────────────────────────────
 
 const QUICK_SYMPTOMS = [
-  'Headache', 'Fever', 'Cough', 'Cold / Flu', 'Fatigue',
-  'Nausea', 'Vomiting', 'Diarrhea', 'Constipation', 'Acidity',
-  'Anxiety', 'Insomnia', 'Joint Pain', 'Back Pain', 'Skin Rash',
-  'Breathlessness', 'Weakness', 'Burning', 'Itching',
+  'Acidity', 'Anxiety', 'Back Pain', 'Breathlessness', 'Burning',
+  'Cold / Flu', 'Constipation', 'Cough', 'Diarrhea', 'Fatigue',
+  'Fever', 'Gripe', 'Headache', 'Insomnia', 'Itching',
+  'Joint Pain', 'Nausea', 'Skin Rash', 'Vomiting', 'Weakness',
 ]
 
 // ─── NumericInput ─────────────────────────────────────────────────────────────

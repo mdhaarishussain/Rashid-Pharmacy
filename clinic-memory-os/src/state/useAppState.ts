@@ -37,6 +37,7 @@ export type AppAction =
   | { type: 'INIT_DRAFT'; visitNumber: number }
   | { type: 'REPEAT_AND_MODIFY' }
   | { type: 'SET_SLOT_MEDICINE'; slotIndex: number; medicine: MedicineEntry }
+  | { type: 'UPDATE_SLOT_MEDICINE'; slotIndex: number; patch: Partial<MedicineEntry> }
   | { type: 'CLEAR_SLOT'; slotIndex: number }
   | { type: 'ADD_SLOT' }
   | { type: 'REMOVE_SLOT'; slotIndex: number }
@@ -184,6 +185,18 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const nextEmpty = slots.findIndex((s, i) => i > action.slotIndex && !s.medicine)
       if (nextEmpty >= 0) nextActive = nextEmpty
       return { ...state, slots, draft, activeSlotIndex: nextActive }
+    }
+
+    case 'UPDATE_SLOT_MEDICINE': {
+      const slots = state.slots.map((s, i) =>
+        i === action.slotIndex && s.medicine
+          ? { ...s, medicine: { ...s.medicine, ...action.patch } }
+          : s
+      )
+      const draft = state.draft
+        ? { ...state.draft, medicines_json: rebuildDraftMedicines(slots), dirty: true }
+        : null
+      return { ...state, slots, draft }
     }
 
     case 'CLEAR_SLOT': {

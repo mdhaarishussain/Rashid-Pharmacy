@@ -19,8 +19,12 @@ export function getShortCode(medicine: Medicine): string {
   return medicine.name.slice(0, 2).toUpperCase()
 }
 
-export const POTENCIES = ['6', '30', '200', '1M', '10M'] as const
+export const POTENCIES = ['6', '30', '200', '1M', '10M', 'Q', 'Ø'] as const
 export type Potency = (typeof POTENCIES)[number]
+
+export function isDropPotency(p: string): boolean {
+  return p === 'Q' || p === 'Ø'
+}
 
 export const MEDICINES: Medicine[] = [
   { name: 'Aconitum Napellus', abbr: 'Acon' },

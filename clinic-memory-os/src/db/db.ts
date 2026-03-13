@@ -5,6 +5,10 @@ import Dexie, { type EntityTable } from 'dexie'
 export interface MedicineEntry {
   name: string
   potency: string
+  freq?: string   // 'OD' | 'BD' | 'TD' | 'QD' | 'HS'
+  food?: string   // 'AC' | 'PC'
+  days?: number   // 3 | 5 | 7 | 10
+  qty?: number    // pills count (1/2/3/6) or drops count (5/10/15/20)
 }
 
 export interface Patient {
