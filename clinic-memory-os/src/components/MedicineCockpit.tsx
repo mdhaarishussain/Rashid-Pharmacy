@@ -60,7 +60,7 @@ function MedicineSlots({
   }, [activePatient, dispatch, draft])
 
   return (
-    <div className="shrink-0 px-4 pt-4 pb-3 border-b border-border bg-panel">
+    <div className="overflow-y-auto px-4 pt-4 pb-3 border-b border-border bg-panel max-h-[50vh]">
       {/* Patient header */}
       {activePatient ? (
         <div className="flex items-baseline justify-between mb-3">

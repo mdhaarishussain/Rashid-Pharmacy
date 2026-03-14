@@ -95,6 +95,16 @@ const TUTORIAL_STEPS = [
     body: 'Click slot 1, 2, or 3 to activate it (turns blue). In the Shelf below, search by full name or 2-letter short code — e.g. type "NV" for Nux Vomica, "MS" for Merc Sol. Then click a potency (6, 30, 200, 1M, 10M) to add it.',
   },
   {
+    targetId: 'tutorial-cockpit',
+    title: 'Dosage & Instructions',
+    body: 'After adding a medicine, choose a dosage preset in one tap — "BD · AC · 5d" means twice daily, before meals, for 5 days. Then tap a pill count (1p / 2p / 3p / 6p). For mother tinctures (💧Ø), tap drops (5, 10, 15, 20) instead. The slot auto-collapses to a summary once done — tap ✎ to edit. Use "Custom…" for precise control over each field.',
+  },
+  {
+    targetId: 'tutorial-cockpit',
+    title: 'Keyboard Shortcuts',
+    body: 'Speed up prescribing — 1 / 2 / 3 select a slot · Enter starts a new visit (or Repeat & Modify) · Esc clears search. After picking a medicine: b = BD·AC·5d · t = TD·AC·3d · h = HS·10d · p = BD·PC·7d. Shortcuts are inactive when typing in any field.',
+  },
+  {
     targetId: 'tutorial-closure',
     title: 'Symptoms & Notes',
     body: 'Tap a quick-symptom chip (Headache, Fever, Cough…) to add it in one tap. Type freely in the Notes box for anything else. All saved automatically.',
@@ -340,10 +350,18 @@ export default function App() {
         dispatch({ type: 'SET_SEARCH_RESULTS', results: search('') })
         setSearchResetKey((k) => k + 1)
       }
+      // Dosage preset shortcuts — only when active slot has a medicine
+      const activeSlot = state.slots[state.activeSlotIndex]
+      if (activeSlot?.medicine) {
+        if (e.key === 'b') { e.preventDefault(); dispatch({ type: 'UPDATE_SLOT_MEDICINE', slotIndex: state.activeSlotIndex, patch: { freq: 'BD', food: 'AC', days: 5 } }) }
+        if (e.key === 't') { e.preventDefault(); dispatch({ type: 'UPDATE_SLOT_MEDICINE', slotIndex: state.activeSlotIndex, patch: { freq: 'TD', food: 'AC', days: 3 } }) }
+        if (e.key === 'h') { e.preventDefault(); dispatch({ type: 'UPDATE_SLOT_MEDICINE', slotIndex: state.activeSlotIndex, patch: { freq: 'HS', food: undefined, days: 10 } }) }
+        if (e.key === 'p') { e.preventDefault(); dispatch({ type: 'UPDATE_SLOT_MEDICINE', slotIndex: state.activeSlotIndex, patch: { freq: 'BD', food: 'PC', days: 7 } }) }
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [dispatch, showTutorial, showMigration, state.activePatient, state.draft, state.lastVisit, state.patientVisits.length])
+  }, [dispatch, showTutorial, showMigration, state.activePatient, state.draft, state.lastVisit, state.patientVisits.length, state.slots, state.activeSlotIndex])
 
   // ── Bootstrap: seed + build search index + restore draft ──────────────────
   useEffect(() => {
