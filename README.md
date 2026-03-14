@@ -21,7 +21,7 @@ P H A R M A C Y  ·  C O N S U L T A T I O N  C O C K P I T
 [![Vite](https://img.shields.io/badge/Vite-6.4-646cff?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
 [![PWA](https://img.shields.io/badge/Installable-PWA-5bb974?style=for-the-badge&logo=pwa&logoColor=white)](https://web.dev/progressive-web-apps/)
 [![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.4-38bdf8?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
-[![Offline](https://img.shields.io/badge/Works-Offline-orange?style=for-the-badge&logo=serviceworker&logoColor=white)](#)
+[![Offline](https://img.shields.io/badge/Works-Offline-orange?style=for-the-badge&logo=serviceworker&logoColor=white)](https://web.dev/learn/pwa/offline-data/)
 
 <br/>
 
