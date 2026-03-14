@@ -316,7 +316,7 @@ vercel --prod
 
 ## Design Philosophy
 
-The UI was built for a **60+ year old practitioner** who uses it 8 hours a day on a mid-range Android tablet.
+The UI was built for a **60+-year-old practitioner** who uses it 8 hours a day on a mid-range Android tablet.
 
 | Principle | Implementation |
 |-----------|---------------|
