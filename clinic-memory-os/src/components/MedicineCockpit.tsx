@@ -177,6 +177,9 @@ function SlotRow({
   // editMode switches between quick (presets+qty) and custom (individual chips)
   const [editMode, setEditMode] = useState<'quick' | 'custom'>('quick')
 
+  // Reset to quick mode whenever a different medicine is loaded into this slot
+  useEffect(() => { setEditMode('quick') }, [med?.name])
+
   // Compact: collapse dosage area once freq + qty are both chosen
   const isCompact = !!med && !!med.freq && !!med.qty && editMode === 'quick'
 

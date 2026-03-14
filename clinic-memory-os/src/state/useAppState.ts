@@ -180,7 +180,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         const existing = s.medicine
         const medicine: MedicineEntry =
           existing?.name === action.medicine.name
-            ? { freq: existing.freq, food: existing.food, days: existing.days, qty: existing.qty, ...action.medicine }
+            ? { freq: existing.freq, food: existing.food, days: existing.days, qty: existing.qty, ...action.medicine, type: action.medicine.type ?? existing?.type }
             : action.medicine
         return { ...s, medicine }
       })

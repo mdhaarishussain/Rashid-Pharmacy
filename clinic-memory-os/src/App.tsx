@@ -352,11 +352,12 @@ export default function App() {
       }
       // Dosage preset shortcuts — only when active slot has a medicine
       const activeSlot = state.slots[state.activeSlotIndex]
+      const key = e.key.toLowerCase()
       if (activeSlot?.medicine) {
-        if (e.key === 'b') { e.preventDefault(); dispatch({ type: 'UPDATE_SLOT_MEDICINE', slotIndex: state.activeSlotIndex, patch: { freq: 'BD', food: 'AC', days: 5 } }) }
-        if (e.key === 't') { e.preventDefault(); dispatch({ type: 'UPDATE_SLOT_MEDICINE', slotIndex: state.activeSlotIndex, patch: { freq: 'TD', food: 'AC', days: 3 } }) }
-        if (e.key === 'h') { e.preventDefault(); dispatch({ type: 'UPDATE_SLOT_MEDICINE', slotIndex: state.activeSlotIndex, patch: { freq: 'HS', food: undefined, days: 10 } }) }
-        if (e.key === 'p') { e.preventDefault(); dispatch({ type: 'UPDATE_SLOT_MEDICINE', slotIndex: state.activeSlotIndex, patch: { freq: 'BD', food: 'PC', days: 7 } }) }
+        if (key === 'b') { e.preventDefault(); dispatch({ type: 'UPDATE_SLOT_MEDICINE', slotIndex: state.activeSlotIndex, patch: { freq: 'BD', food: 'AC', days: 5 } }) }
+        if (key === 't') { e.preventDefault(); dispatch({ type: 'UPDATE_SLOT_MEDICINE', slotIndex: state.activeSlotIndex, patch: { freq: 'TD', food: 'AC', days: 3 } }) }
+        if (key === 'h') { e.preventDefault(); dispatch({ type: 'UPDATE_SLOT_MEDICINE', slotIndex: state.activeSlotIndex, patch: { freq: 'HS', food: undefined, days: 10 } }) }
+        if (key === 'p') { e.preventDefault(); dispatch({ type: 'UPDATE_SLOT_MEDICINE', slotIndex: state.activeSlotIndex, patch: { freq: 'BD', food: 'PC', days: 7 } }) }
       }
     }
     window.addEventListener('keydown', handler)

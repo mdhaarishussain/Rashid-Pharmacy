@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { db } from '../db/db'
 import type { Patient, MedicineEntry } from '../db/db'
-import { MEDICINES, getMedicinePotencies, isDropPotency } from '../data/medicines'
+import { MEDICINES, getMedicinePotencies, isDropPotency, type MedicineType } from '../data/medicines'
 import { addToIndex } from '../search/searchEngine'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -9,6 +9,7 @@ import { addToIndex } from '../search/searchEngine'
 interface MigrationMed {
   name: string
   potency: string
+  type?: MedicineType
   freq?: string
   food?: string
   days?: number
@@ -89,7 +90,7 @@ function MedInput({
                     setQuery(s.name)
                     // Reset potency to first valid option when medicine changes
                     const newPotencies = getMedicinePotencies(s)
-                    onChange({ ...value, name: s.name, potency: newPotencies[0] as string })
+                    onChange({ ...value, name: s.name, potency: newPotencies[0] as string, type: s.type })
                     setOpen(false)
                   }}
                   className="w-full flex items-center gap-2 px-3 py-2 hover:bg-card text-left transition-colors"
@@ -381,6 +382,7 @@ export default function MigrationModal({ onClose }: Props) {
           .map((m) => ({
             name: m.name.trim(),
             potency: m.potency,
+            ...(m.type !== undefined && { type: m.type }),
             ...(m.freq !== undefined && { freq: m.freq }),
             ...(m.food !== undefined && { food: m.food }),
             ...(m.days !== undefined && { days: m.days }),
