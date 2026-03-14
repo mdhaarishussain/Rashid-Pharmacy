@@ -174,9 +174,16 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     }
 
     case 'SET_SLOT_MEDICINE': {
-      const slots = state.slots.map((s, i) =>
-        i === action.slotIndex ? { ...s, medicine: action.medicine } : s
-      )
+      const slots = state.slots.map((s, i) => {
+        if (i !== action.slotIndex) return s
+        // Preserve dosage fields when the medicine name is unchanged (user just changed potency)
+        const existing = s.medicine
+        const medicine: MedicineEntry =
+          existing?.name === action.medicine.name
+            ? { freq: existing.freq, food: existing.food, days: existing.days, qty: existing.qty, ...action.medicine }
+            : action.medicine
+        return { ...s, medicine }
+      })
       const draft = state.draft
         ? { ...state.draft, medicines_json: rebuildDraftMedicines(slots), dirty: true }
         : null

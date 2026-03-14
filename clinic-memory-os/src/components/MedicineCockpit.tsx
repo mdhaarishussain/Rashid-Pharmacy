@@ -100,9 +100,9 @@ function MedicineSlots({
             {lastVisit.medicines_json.map((m, i) => (
               <span
                 key={i}
-                className="text-sm bg-panel border border-border px-2.5 py-1 rounded-lg text-primary font-medium shadow-sm inline-block"
+                className="text-sm bg-panel border border-border px-2.5 py-1 rounded-lg text-primary font-medium shadow-sm inline-block max-w-[12rem]"
               >
-                {m.name.split(' ')[0]}{' '}
+                <span className="truncate block leading-snug">{m.name}</span>
                 <span className={`font-semibold ${isDropPotency(m.potency) ? 'text-sky-400' : 'text-accent'}`}>
                   {isDropPotency(m.potency) ? '💧' : ''}{m.potency}
                 </span>
@@ -170,8 +170,8 @@ function SlotRow({
   dispatch: React.Dispatch<AppAction>
 }) {
   const med = slot.medicine
-  const isTincture = med ? isDropPotency(med.potency) : false
-  const isBiochemic = med ? (med.potency === '6x' || med.potency === '12x') : false
+  const isTincture = med ? (med.type === 'tincture' || isDropPotency(med.potency)) : false
+  const isBiochemic = med ? (med.type === 'biochemic' || med.potency === '6x' || med.potency === '12x') : false
   const qtyCh = isTincture ? DROP_CHIPS : PILL_CHIPS
 
   // editMode switches between quick (presets+qty) and custom (individual chips)
@@ -478,7 +478,7 @@ function ShelfRowRenderer({
                 dispatch({
                   type: 'SET_SLOT_MEDICINE',
                   slotIndex: activeSlotIndex,
-                  medicine: { name: med.name, potency: p },
+                  medicine: { name: med.name, potency: p, type: med.type },
                 })
               }
               className={
@@ -517,13 +517,21 @@ export default function MedicineCockpit(props: Props) {
   const [shelfQuery, setShelfQuery] = useState('')
   const shelfDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const clearShelfDebounce = useCallback(() => {
+    if (shelfDebounce.current) {
+      clearTimeout(shelfDebounce.current)
+      shelfDebounce.current = null
+    }
+  }, [])
+
   const [visibleRows, setVisibleRows] = useState<ShelfRow[]>(SHELF_ROWS)
 
   const handleShelfSearch = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value
     setShelfQuery(val)
-    if (shelfDebounce.current) clearTimeout(shelfDebounce.current)
+    clearShelfDebounce()
     shelfDebounce.current = setTimeout(() => {
+      shelfDebounce.current = null
       if (!val.trim()) {
         setVisibleRows(SHELF_ROWS)
         return
@@ -548,7 +556,12 @@ export default function MedicineCockpit(props: Props) {
       setVisibleRows(filtered)
       listRef.current?.resetAfterIndex(0)
     }, 100)
-  }, [])
+  }, [clearShelfDebounce])
+
+  // Cleanup pending debounce on unmount
+  useEffect(() => {
+    return () => clearShelfDebounce()
+  }, [clearShelfDebounce])
 
   useEffect(() => {
     const el = containerRef.current
@@ -590,6 +603,7 @@ export default function MedicineCockpit(props: Props) {
             {shelfQuery && (
               <button
                 onClick={() => {
+                  clearShelfDebounce()
                   setShelfQuery('')
                   setVisibleRows(SHELF_ROWS)
                   listRef.current?.resetAfterIndex(0)
