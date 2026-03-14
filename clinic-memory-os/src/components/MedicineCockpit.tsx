@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { VariableSizeList, type ListChildComponentProps } from 'react-window'
 import type { MedicineSlot, AppAction } from '../state/useAppState'
-import type { Visit } from '../db/db'
-import { SHELF_ROWS, POTENCIES, type ShelfRow, getShortCode } from '../data/medicines'
+import type { Visit, MedicineEntry } from '../db/db'
+import { SHELF_ROWS, type ShelfRow, getShortCode, isDropPotency, getMedicinePotencies } from '../data/medicines'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -13,6 +13,31 @@ interface Props {
   activePatient: { id?: number; name: string } | null
   draft: { visit_number: number } | null
   dispatch: React.Dispatch<AppAction>
+}
+
+// ─── Dosage chip constants ────────────────────────────────────────────────────
+
+const FREQ_CHIPS = ['OD', 'BD', 'TD', 'QD', 'HS'] as const
+const FOOD_CHIPS = ['AC', 'PC'] as const
+const DAYS_CHIPS = [3, 5, 7, 10] as const
+const PILL_CHIPS = [1, 2, 3, 6] as const
+const DROP_CHIPS = [5, 10, 15, 20] as const
+
+// Common prescription presets — 1 tap fills freq + food + days
+const PRESETS: Array<{ label: string; patch: Partial<MedicineEntry> }> = [
+  { label: 'BD · AC · 5d', patch: { freq: 'BD', food: 'AC', days: 5 } },
+  { label: 'TD · AC · 3d', patch: { freq: 'TD', food: 'AC', days: 3 } },
+  { label: 'HS · 10d',     patch: { freq: 'HS', food: undefined, days: 10 } },
+  { label: 'BD · PC · 7d', patch: { freq: 'BD', food: 'PC', days: 7 } },
+]
+
+function chipCls(active: boolean): string {
+  return (
+    'text-xs px-1.5 py-0.5 rounded-md font-semibold border transition-colors shrink-0 ' +
+    (active
+      ? 'bg-accent text-panel border-accent'
+      : 'bg-surface text-muted border-border hover:border-accent hover:text-accent')
+  )
 }
 
 // ─── MedicineSlots ────────────────────────────────────────────────────────────
@@ -35,7 +60,7 @@ function MedicineSlots({
   }, [activePatient, dispatch, draft])
 
   return (
-    <div className="shrink-0 px-4 pt-4 pb-3 border-b border-border bg-panel">
+    <div className="overflow-y-auto px-4 pt-4 pb-3 border-b border-border bg-panel max-h-[50vh]">
       {/* Patient header */}
       {activePatient ? (
         <div className="flex items-baseline justify-between mb-3">
@@ -75,9 +100,24 @@ function MedicineSlots({
             {lastVisit.medicines_json.map((m, i) => (
               <span
                 key={i}
-                className="text-sm bg-panel border border-border px-2.5 py-1 rounded-lg text-primary font-medium shadow-sm"
+                className="text-sm bg-panel border border-border px-2.5 py-1 rounded-lg text-primary font-medium shadow-sm inline-block max-w-[12rem]"
               >
-                {m.name.split(' ')[0]} <span className="text-accent font-semibold">{m.potency}</span>
+                <span className="truncate block leading-snug">{m.name}</span>
+                <span className={`font-semibold ${isDropPotency(m.potency) ? 'text-sky-400' : 'text-accent'}`}>
+                  {isDropPotency(m.potency) ? '💧' : ''}{m.potency}
+                </span>
+                {(m.freq || m.food || m.days || m.qty) && (
+                  <span className="block text-xs text-muted font-mono mt-0.5">
+                    {[
+                      m.freq,
+                      m.food,
+                      m.days && `${m.days}d`,
+                      m.qty && `${m.qty}${isDropPotency(m.potency) ? '💧' : 'p'}`,
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                  </span>
+                )}
               </span>
             ))}
           </div>
@@ -129,67 +169,247 @@ function SlotRow({
   isActive: boolean
   dispatch: React.Dispatch<AppAction>
 }) {
+  const med = slot.medicine
+  const isTincture = med ? (med.type === 'tincture' || isDropPotency(med.potency)) : false
+  const isBiochemic = med ? (med.type === 'biochemic' || med.potency === '6x' || med.potency === '12x') : false
+  const qtyCh = isTincture ? DROP_CHIPS : PILL_CHIPS
+
+  // editMode switches between quick (presets+qty) and custom (individual chips)
+  const [editMode, setEditMode] = useState<'quick' | 'custom'>('quick')
+
+  // Reset to quick mode whenever a different medicine is loaded into this slot
+  useEffect(() => { setEditMode('quick') }, [med?.name])
+
+  // Compact: collapse dosage area once freq + qty are both chosen
+  const isCompact = !!med && !!med.freq && !!med.qty && editMode === 'quick'
+
+  // Build compact summary string
+  const dosageSummary = med
+    ? [
+        med.freq,
+        med.food,
+        med.days && `${med.days}d`,
+        med.qty && `${med.qty}${isTincture ? '💧' : 'p'}`,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : ''
+
+  // Potency badge colour
+  const potencyCls = isTincture
+    ? 'bg-sky-500/10 border border-sky-400/30 text-sky-400'
+    : isBiochemic
+    ? 'bg-emerald-500/10 border border-emerald-400/30 text-emerald-400'
+    : 'bg-accent/10 border border-accent/30 text-accent'
+
+  const presetIsActive = (p: (typeof PRESETS)[number]) =>
+    med?.freq === p.patch.freq &&
+    med?.food === (p.patch.food ?? undefined) &&
+    med?.days === p.patch.days
+
   return (
     <div
-      className={`flex items-center gap-2 px-3 py-3 rounded-xl cursor-pointer transition-all ${
+      className={`rounded-xl cursor-pointer transition-all ${
         isActive
           ? 'border-2 border-accent bg-accent/10 shadow-xl shadow-accent/20 ring-4 ring-accent/30 ring-offset-1'
           : 'border border-border bg-panel hover:border-accent/50 hover:bg-card shadow-sm'
       }`}
       onClick={() => dispatch({ type: 'SET_ACTIVE_SLOT', index })}
     >
-      <span
-        className={`flex items-center justify-center rounded-full font-black shrink-0 transition-all ${
-          isActive
-            ? 'w-8 h-8 text-base bg-accent text-white shadow-md shadow-accent/40'
-            : 'w-6 h-6 text-sm text-muted bg-card border border-border'
-        }`}
-      >
-        {index + 1}
-      </span>
-
-      {slot.medicine ? (
-        <div className="flex-1 flex items-center gap-2 min-w-0">
-          <span className="text-xs font-black text-accent bg-accent/10 border border-accent/25 px-1.5 py-0.5 rounded font-mono shrink-0">
-            {getShortCode({ name: slot.medicine.name, abbr: '' })}
-          </span>
-          <span className="text-base text-primary font-semibold truncate">{slot.medicine.name}</span>
-          <span className="text-sm bg-accent/10 border border-accent/30 px-2 py-0.5 rounded-md font-bold text-accent shrink-0">
-            {slot.medicine.potency}
-          </span>
-        </div>
-      ) : (
-        <span className={`flex-1 text-base ${isActive ? 'text-accent font-medium' : 'text-muted'} italic`}>
-          {isActive ? 'Select from shelf ↓' : 'Empty'}
-        </span>
-      )}
-
-      {slot.medicine && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            dispatch({ type: 'CLEAR_SLOT', slotIndex: index })
-          }}
-          className="shrink-0 text-muted hover:text-danger transition-colors ml-1"
+      {/* ── Row 1: medicine info bar ── */}
+      <div className="flex items-center gap-2 px-3 py-2.5 min-w-0">
+        {/* Badge */}
+        <span
+          className={`flex items-center justify-center rounded-full font-black shrink-0 transition-all ${
+            isActive
+              ? 'w-8 h-8 text-base bg-accent text-white shadow-md shadow-accent/40'
+              : 'w-6 h-6 text-sm text-muted bg-card border border-border'
+          }`}
         >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      )}
+          {index + 1}
+        </span>
 
-      <button
-        onClick={(e) => {
-          e.stopPropagation()
-          dispatch({ type: 'REMOVE_SLOT', slotIndex: index })
-        }}
-        className="shrink-0 text-border hover:text-danger transition-colors"
-        title="Remove slot"
-      >
-        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-        </svg>
-      </button>
+        {med ? (
+          <>
+            {/* Shortcode */}
+            <span className="text-xs font-black text-accent bg-accent/10 border border-accent/25 px-1.5 py-0.5 rounded font-mono shrink-0">
+              {getShortCode({ name: med.name, abbr: '' })}
+            </span>
+            {/* Name */}
+            <span className="text-base text-primary font-semibold truncate min-w-0">
+              {med.name}
+            </span>
+            {/* Potency */}
+            <span className={`text-sm px-2 py-0.5 rounded-md font-bold shrink-0 ${potencyCls}`}>
+              {isTincture ? '💧' : ''}{med.potency}
+            </span>
+            {/* Compact dosage pill — tap to edit */}
+            {isCompact && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setEditMode('custom') }}
+                className="flex items-center gap-1.5 text-xs bg-accent/5 border border-accent/20 rounded-lg px-2 py-1 text-accent hover:bg-accent/10 transition-colors shrink-0 font-mono font-semibold"
+                title="Edit dosage"
+              >
+                {dosageSummary}
+                <svg className="w-2.5 h-2.5 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              </button>
+            )}
+          </>
+        ) : (
+          <span className={`flex-1 text-base ${isActive ? 'text-accent font-medium' : 'text-muted'} italic`}>
+            {isActive ? 'Select from shelf ↓' : 'Empty'}
+          </span>
+        )}
+
+        {/* Actions */}
+        <div className="ml-auto flex items-center gap-1 shrink-0">
+          {med && (
+            <button
+              onClick={(e) => { e.stopPropagation(); dispatch({ type: 'CLEAR_SLOT', slotIndex: index }) }}
+              className="text-muted hover:text-danger transition-colors p-0.5"
+              title="Clear medicine"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); dispatch({ type: 'REMOVE_SLOT', slotIndex: index }) }}
+            className="text-border hover:text-danger transition-colors p-0.5"
+            title="Remove slot"
+          >
+            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* ── Row 2: dosage area (hidden when compact) ── */}
+      {med && !isCompact && (
+        <div
+          className="border-t border-border/50 px-3 py-2.5 space-y-2"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {editMode === 'quick' ? (
+            <>
+              {/* Preset chips — one tap fills freq + food + days */}
+              <div className="flex flex-wrap gap-1.5">
+                {PRESETS.map((p) => (
+                  <button
+                    key={p.label}
+                    onClick={() =>
+                      dispatch({ type: 'UPDATE_SLOT_MEDICINE', slotIndex: index, patch: p.patch })
+                    }
+                    className={`text-xs px-2.5 py-1.5 rounded-lg border font-semibold transition-colors ${
+                      presetIsActive(p)
+                        ? 'bg-accent/15 border-accent text-accent'
+                        : 'bg-card border-border text-muted hover:border-accent hover:text-accent'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setEditMode('custom')}
+                  className="text-xs px-2.5 py-1.5 rounded-lg border border-dashed border-border text-muted hover:border-accent hover:text-accent transition-colors"
+                >
+                  Custom…
+                </button>
+              </div>
+
+              {/* Qty row */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-xs font-semibold text-muted w-8 shrink-0">
+                  {isTincture ? '💧' : 'Qty'}
+                </span>
+                {qtyCh.map((n) => (
+                  <button
+                    key={n}
+                    onClick={() =>
+                      dispatch({ type: 'UPDATE_SLOT_MEDICINE', slotIndex: index, patch: { qty: med.qty === n ? undefined : n } })
+                    }
+                    className={chipCls(med.qty === n)}
+                  >
+                    {isTincture ? '💧' : ''}{n}{isTincture ? '' : 'p'}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Freq + food row */}
+              <div className="flex items-center gap-1 flex-wrap">
+                <span className="text-xs font-semibold text-muted w-8 shrink-0">Freq</span>
+                {FREQ_CHIPS.map((f) => (
+                  <button
+                    key={f}
+                    onClick={() =>
+                      dispatch({ type: 'UPDATE_SLOT_MEDICINE', slotIndex: index, patch: { freq: med.freq === f ? undefined : f } })
+                    }
+                    className={chipCls(med.freq === f)}
+                  >
+                    {f}
+                  </button>
+                ))}
+                <span className="text-border mx-0.5 shrink-0 text-xs">·</span>
+                {FOOD_CHIPS.map((f) => (
+                  <button
+                    key={f}
+                    onClick={() =>
+                      dispatch({ type: 'UPDATE_SLOT_MEDICINE', slotIndex: index, patch: { food: med.food === f ? undefined : f } })
+                    }
+                    className={chipCls(med.food === f)}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+
+              {/* Days + qty row */}
+              <div className="flex items-center gap-1 flex-wrap">
+                <span className="text-xs font-semibold text-muted w-8 shrink-0">Days</span>
+                {DAYS_CHIPS.map((d) => (
+                  <button
+                    key={d}
+                    onClick={() =>
+                      dispatch({ type: 'UPDATE_SLOT_MEDICINE', slotIndex: index, patch: { days: med.days === d ? undefined : d } })
+                    }
+                    className={chipCls(med.days === d)}
+                  >
+                    {d}d
+                  </button>
+                ))}
+                <span className="text-border mx-0.5 shrink-0 text-xs">·</span>
+                <span className="text-xs font-semibold text-muted shrink-0">
+                  {isTincture ? '💧' : 'Qty'}
+                </span>
+                {qtyCh.map((n) => (
+                  <button
+                    key={n}
+                    onClick={() =>
+                      dispatch({ type: 'UPDATE_SLOT_MEDICINE', slotIndex: index, patch: { qty: med.qty === n ? undefined : n } })
+                    }
+                    className={chipCls(med.qty === n)}
+                  >
+                    {isTincture ? '💧' : ''}{n}{isTincture ? '' : 'p'}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={() => setEditMode('quick')}
+                className="text-xs text-muted hover:text-accent transition-colors"
+              >
+                ← Back to presets
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -233,11 +453,7 @@ function ShelfRowRenderer({
 
   const med = row.medicine
   const shortCode = getShortCode(med)
-
-  // Highlight matching text
-  const nameDisplay = shelfQuery
-    ? highlightMatch(med.name, shelfQuery)
-    : med.name
+  const nameDisplay = shelfQuery ? highlightMatch(med.name, shelfQuery) : med.name
 
   return (
     <div
@@ -248,26 +464,36 @@ function ShelfRowRenderer({
       <div className="w-9 h-9 rounded-lg bg-accent/10 border border-accent/25 flex items-center justify-center shrink-0">
         <span className="text-xs font-black text-accent tracking-tight">{shortCode}</span>
       </div>
+
       <div className="flex-1 min-w-0">
         <div className="text-sm text-primary font-medium truncate leading-snug">{nameDisplay}</div>
         <div className="text-xs text-muted">{med.abbr}</div>
       </div>
+
+      {/* Potency buttons — type-appropriate set for this medicine */}
       <div className="flex gap-1 shrink-0">
-        {POTENCIES.map((p) => (
-          <button
-            key={p}
-            onClick={() =>
-              dispatch({
-                type: 'SET_SLOT_MEDICINE',
-                slotIndex: activeSlotIndex,
-                medicine: { name: med.name, potency: p },
-              })
-            }
-            className="text-sm bg-panel hover:bg-accent hover:text-panel border-2 border-border hover:border-accent active:scale-95 px-1.5 py-3 rounded-lg transition-all font-mono font-bold min-w-[42px] text-center shadow-sm text-primary"
-          >
-            {p}
-          </button>
-        ))}
+        {getMedicinePotencies(med).map((p) => {
+          const isTinc = isDropPotency(p)
+          return (
+            <button
+              key={p}
+              onClick={() =>
+                dispatch({
+                  type: 'SET_SLOT_MEDICINE',
+                  slotIndex: activeSlotIndex,
+                  medicine: { name: med.name, potency: p, type: med.type },
+                })
+              }
+              className={
+                isTinc
+                  ? 'text-sm bg-panel hover:bg-sky-500 hover:text-white border-2 border-sky-300/40 hover:border-sky-500 active:scale-95 px-1.5 py-2 rounded-lg transition-all font-mono font-bold min-w-[46px] text-center shadow-sm text-sky-400'
+                  : 'text-sm bg-panel hover:bg-accent hover:text-panel border-2 border-border hover:border-accent active:scale-95 px-1.5 py-2 rounded-lg transition-all font-mono font-bold min-w-[38px] text-center shadow-sm text-primary'
+              }
+            >
+              {isTinc ? '💧' : ''}{p}
+            </button>
+          )
+        })}
       </div>
     </div>
   )
@@ -294,14 +520,21 @@ export default function MedicineCockpit(props: Props) {
   const [shelfQuery, setShelfQuery] = useState('')
   const shelfDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Filter shelf rows by query
+  const clearShelfDebounce = useCallback(() => {
+    if (shelfDebounce.current) {
+      clearTimeout(shelfDebounce.current)
+      shelfDebounce.current = null
+    }
+  }, [])
+
   const [visibleRows, setVisibleRows] = useState<ShelfRow[]>(SHELF_ROWS)
 
   const handleShelfSearch = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value
     setShelfQuery(val)
-    if (shelfDebounce.current) clearTimeout(shelfDebounce.current)
+    clearShelfDebounce()
     shelfDebounce.current = setTimeout(() => {
+      shelfDebounce.current = null
       if (!val.trim()) {
         setVisibleRows(SHELF_ROWS)
         return
@@ -326,9 +559,13 @@ export default function MedicineCockpit(props: Props) {
       setVisibleRows(filtered)
       listRef.current?.resetAfterIndex(0)
     }, 100)
-  }, [])
+  }, [clearShelfDebounce])
 
-  // ResizeObserver for shelf height
+  // Cleanup pending debounce on unmount
+  useEffect(() => {
+    return () => clearShelfDebounce()
+  }, [clearShelfDebounce])
+
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
@@ -338,7 +575,6 @@ export default function MedicineCockpit(props: Props) {
     return () => ro.disconnect()
   }, [])
 
-  // Reset list cache when rows change
   useEffect(() => {
     listRef.current?.resetAfterIndex(0)
   }, [visibleRows])
@@ -370,6 +606,7 @@ export default function MedicineCockpit(props: Props) {
             {shelfQuery && (
               <button
                 onClick={() => {
+                  clearShelfDebounce()
                   setShelfQuery('')
                   setVisibleRows(SHELF_ROWS)
                   listRef.current?.resetAfterIndex(0)

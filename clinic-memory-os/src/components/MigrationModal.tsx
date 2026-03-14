@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { db } from '../db/db'
 import type { Patient, MedicineEntry } from '../db/db'
-import { MEDICINES, POTENCIES } from '../data/medicines'
+import { MEDICINES, getMedicinePotencies, isDropPotency, type MedicineType } from '../data/medicines'
 import { addToIndex } from '../search/searchEngine'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -9,6 +9,11 @@ import { addToIndex } from '../search/searchEngine'
 interface MigrationMed {
   name: string
   potency: string
+  type?: MedicineType
+  freq?: string
+  food?: string
+  days?: number
+  qty?: number
 }
 
 interface MigrationVisit {
@@ -44,6 +49,10 @@ function MedInput({
   const [open, setOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  const matchedMed = MEDICINES.find((m) => m.name === value.name)
+  const potencyOptions = matchedMed ? getMedicinePotencies(matchedMed) : ['6', '30', '200', '1M', '10M']
+  const isTincture = matchedMed ? matchedMed.type === 'tincture' : isDropPotency(value.potency)
+
   const suggestions = query.trim().length >= 1
     ? MEDICINES.filter(
         (m) =>
@@ -53,54 +62,104 @@ function MedInput({
     : []
 
   return (
-    <div className="flex gap-1.5 items-center">
-      {/* Medicine name with autocomplete */}
-      <div className="relative flex-1">
-        <input
-          ref={inputRef}
-          type="text"
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value)
-            setOpen(true)
-            onChange({ ...value, name: e.target.value })
-          }}
-          onFocus={() => setOpen(true)}
-          onBlur={() => setTimeout(() => setOpen(false), 150)}
-          placeholder="Medicine name or abbr…"
-          className="w-full bg-surface border border-border rounded-lg px-2.5 py-2 text-sm text-primary focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
-        />
-        {open && suggestions.length > 0 && (
-          <div className="absolute left-0 top-full mt-1 z-50 w-72 bg-panel border border-border rounded-xl shadow-xl overflow-hidden">
-            {suggestions.map((s) => (
-              <button
-                key={s.name}
-                onMouseDown={(e) => {
-                  e.preventDefault()
-                  setQuery(s.name)
-                  onChange({ ...value, name: s.name })
-                  setOpen(false)
-                }}
-                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-card text-left transition-colors"
-              >
-                <span className="text-xs font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded w-10 text-center shrink-0">{s.abbr}</span>
-                <span className="text-sm text-primary">{s.name}</span>
-              </button>
-            ))}
-          </div>
-        )}
+    <div className="space-y-1.5">
+      <div className="flex gap-1.5 items-center">
+        {/* Medicine name with autocomplete */}
+        <div className="relative flex-1">
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value)
+              setOpen(true)
+              onChange({ ...value, name: e.target.value })
+            }}
+            onFocus={() => setOpen(true)}
+            onBlur={() => setTimeout(() => setOpen(false), 150)}
+            placeholder="Medicine name or abbr…"
+            className="w-full bg-surface border border-border rounded-lg px-2.5 py-2 text-sm text-primary focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+          />
+          {open && suggestions.length > 0 && (
+            <div className="absolute left-0 top-full mt-1 z-50 w-72 bg-panel border border-border rounded-xl shadow-xl overflow-hidden">
+              {suggestions.map((s) => (
+                <button
+                  key={s.name}
+                  onMouseDown={(e) => {
+                    e.preventDefault()
+                    setQuery(s.name)
+                    // Reset potency to first valid option when medicine changes
+                    const newPotencies = getMedicinePotencies(s)
+                    onChange({ ...value, name: s.name, potency: newPotencies[0] as string, type: s.type })
+                    setOpen(false)
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-card text-left transition-colors"
+                >
+                  <span className="text-xs font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded w-10 text-center shrink-0">{s.abbr}</span>
+                  <span className="text-sm text-primary">{s.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Potency — type-appropriate options */}
+        <select
+          value={value.potency}
+          onChange={(e) => onChange({ ...value, potency: e.target.value })}
+          className="bg-surface border border-border rounded-lg px-2 py-2 text-sm text-primary focus:outline-none focus:border-accent"
+        >
+          {potencyOptions.map((p) => (
+            <option key={p} value={p}>{p}</option>
+          ))}
+        </select>
       </div>
 
-      {/* Potency */}
-      <select
-        value={value.potency}
-        onChange={(e) => onChange({ ...value, potency: e.target.value })}
-        className="bg-surface border border-border rounded-lg px-2 py-2 text-sm text-primary focus:outline-none focus:border-accent"
-      >
-        {POTENCIES.map((p) => (
-          <option key={p} value={p}>{p}</option>
-        ))}
-      </select>
+      {/* Dosage row */}
+      <div className="flex gap-1.5 items-center flex-wrap pl-1">
+        <select
+          value={value.freq ?? ''}
+          onChange={(e) => onChange({ ...value, freq: e.target.value || undefined })}
+          className="bg-surface border border-border rounded-md px-1.5 py-1 text-xs text-primary focus:outline-none focus:border-accent"
+        >
+          <option value="">Freq—</option>
+          <option value="OD">OD</option>
+          <option value="BD">BD</option>
+          <option value="TD">TD</option>
+          <option value="QD">QD</option>
+          <option value="HS">HS</option>
+        </select>
+        <select
+          value={value.food ?? ''}
+          onChange={(e) => onChange({ ...value, food: e.target.value || undefined })}
+          className="bg-surface border border-border rounded-md px-1.5 py-1 text-xs text-primary focus:outline-none focus:border-accent"
+        >
+          <option value="">—</option>
+          <option value="AC">AC</option>
+          <option value="PC">PC</option>
+        </select>
+        <input
+          type="number"
+          min={1} max={30}
+          placeholder="Days"
+          value={value.days ?? ''}
+          onChange={(e) => onChange({ ...value, days: Number(e.target.value) || undefined })}
+          className="w-14 bg-surface border border-border rounded-md px-1.5 py-1 text-xs text-primary focus:outline-none focus:border-accent text-center"
+        />
+        <input
+          type="number"
+          min={1}
+          placeholder={isTincture ? 'Drops' : 'Pills'}
+          value={value.qty ?? ''}
+          onChange={(e) => onChange({ ...value, qty: Number(e.target.value) || undefined })}
+          className="w-14 bg-surface border border-border rounded-md px-1.5 py-1 text-xs text-primary focus:outline-none focus:border-accent text-center"
+        />
+        {(value.freq || value.food || value.days || value.qty) && (
+          <span className="text-xs text-muted font-mono">
+            {[value.freq, value.food, value.days && `${value.days}d`, value.qty && `${value.qty}${isTincture ? '💧' : 'p'}`].filter(Boolean).join(' · ')}
+          </span>
+        )}
+      </div>
     </div>
   )
 }
@@ -170,14 +229,14 @@ function VisitForm({
           <div className="text-xs font-bold text-muted uppercase tracking-wider mb-2">Medicines</div>
           <div className="space-y-2">
             {visit.medicines.map((m, i) => (
-              <div key={i} className="flex items-center gap-1.5">
+              <div key={i} className="flex items-start gap-1.5">
                 <div className="flex-1">
                   <MedInput value={m} onChange={(updated) => setMed(i, updated)} />
                 </div>
                 {visit.medicines.length > 1 && (
                   <button
                     onClick={() => removeMed(i)}
-                    className="text-muted hover:text-danger shrink-0 transition-colors"
+                    className="text-muted hover:text-danger shrink-0 transition-colors mt-2.5"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -320,7 +379,15 @@ export default function MigrationModal({ onClose }: Props) {
         const v = sorted[i]
         const meds: MedicineEntry[] = v.medicines
           .filter((m) => m.name.trim())
-          .map((m) => ({ name: m.name.trim(), potency: m.potency }))
+          .map((m) => ({
+            name: m.name.trim(),
+            potency: m.potency,
+            ...(m.type !== undefined && { type: m.type }),
+            ...(m.freq !== undefined && { freq: m.freq }),
+            ...(m.food !== undefined && { food: m.food }),
+            ...(m.days !== undefined && { days: m.days }),
+            ...(m.qty !== undefined && { qty: m.qty }),
+          }))
 
         const visitDate = new Date(v.date).setHours(12, 0, 0, 0)
         const visitId = await db.visits.add({

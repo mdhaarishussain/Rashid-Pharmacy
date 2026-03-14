@@ -1,296 +1,363 @@
-# 🏥 Clinic Memory OS – Homeopathic Practitioner Console
+<div align="center">
 
-> A **single-screen, installable PWA consultation cockpit** built for solo homeopathic practitioners who need to **prescribe, track payments, and manage patient history** with laser focus—no distractions, no clutter.
+```
+██████╗  █████╗ ███████╗██╗  ██╗██╗██████╗
+██╔══██╗██╔══██╗██╔════╝██║  ██║██║██╔══██╗
+██████╔╝███████║███████╗███████║██║██║  ██║
+██╔══██╗██╔══██║╚════██║██╔══██║██║██║  ██║
+██║  ██║██║  ██║███████║██║  ██║██║██████╔╝
+╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝╚═════╝
 
-![Rashid Pharmacy](https://img.shields.io/badge/For-Homeopathic%20Practitioners-blue?style=flat-square)
-![PWA](https://img.shields.io/badge/Installable-PWA-green?style=flat-square)
-![Mobile Ready](https://img.shields.io/badge/Mobile%20Ready-Yes-success?style=flat-square)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.3%2B-3178c6?style=flat-square)
+P H A R M A C Y  ·  C O N S U L T A T I O N  C O C K P I T
+```
 
----
+### **Clinic Memory OS v1**
+*A single-screen PWA built for Dr. Saood Ahmad — replacing a handwritten register that sees 60–90 patients a day*
 
-## ✨ Why This Exists
+<br/>
 
-**The Problem:**
-A homeopathic practitioner in the clinic needs something **fast, reliable, and offline-capable**. They juggle 3 simultaneous tasks:
-1. Find the patient & see their history
-2. Pick medicines at different potencies  
-3. Record symptoms, calculate fees → track dues
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.3+-3178c6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-18-61dafb?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-6.4-646cff?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
+[![PWA](https://img.shields.io/badge/Installable-PWA-5bb974?style=for-the-badge&logo=pwa&logoColor=white)](https://web.dev/progressive-web-apps/)
+[![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.4-38bdf8?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![Offline](https://img.shields.io/badge/Works-Offline-orange?style=for-the-badge&logo=serviceworker&logoColor=white)](https://web.dev/learn/pwa/offline-data/)
 
-Most EMR software is bloated, cloud-dependent, and slow. **This is different.**
+<br/>
 
-**The Solution:**
-A **desktop-class React app** that fits on **one screen**, works **offline**, persists to **IndexedDB**, searches **instantly**, and auto-saves **every keystroke**.
-
----
-
-## 🎯 Core Features
-
-### 📋 Patient Timeline (Left Panel)
-- **Instant search** by name, medicine, or symptom using Fuse.js fuzzy search
-- **Medicine chips** showing last visit prescriptions at a glance (`[Nux] [Aloe] [Merc]`)
-- **Add new patient instantly** with inline form (no modal, no extra clicks)
-- **Auto-focus search box** on load — just start typing
-- **Smart scroll memory** — selection stays visible
-
-### 💊 Medicine Cockpit (Center)
-- **3 medicine slots** (can add up to 8) — click to activate, turn blue on focus
-- **Potency selector** — 6 / 30 / 200 / 1M / 10M in large, tactile buttons
-- **Medicine shelf** with **`179+ remedies`** sorted A-Z
-  - Search by **full name** (`Nux Vomica`) or **2-letter short code** (`NV`)
-  - Shows abbreviation + last visit uses
-- **Last visit card** — quickly repeat & modify with one click
-- **Active slot visual feedback** — thick border, glow, numbered badge
-
-### 💰 Payment & Dues Panel (Right)
-- **Record fee**, mark **paid**, auto-calculate **due amount**
-- **Outstanding dues badge** (red when unpaid) — click to open **Dues Ledger**
-  - See every unpaid visit
-  - Edit payment per visit
-  - Mark full/partial settlements instantly
-- **Quick buttons**: "Paid Full" / "Credit"
-- **Real-time autosave** — no Save button needed
-- **Delete patient** with confirmation (red modal, shows visit history)
-
-### 🎓 Interactive Tutorial
-- **8-step spotlight tutorial** with SVG mask highlights
-- Teaches: Patient search → Medicine selection → Prescribing → Payments → Import history → Dues management → Delete
-- Keyboard navigation: `←` `→` to step, `Esc` to close
-
-### ⌨️ Keyboard Shortcuts (Built for Older Practitioners)
-- `1` / `2` / `3` → activate medicine slot  
-- `Enter` → repeat last visit or start new
-- `Esc` → clear search, re-focus input
-
-### 🌍 Data Import
-- **"Import History"** button — bulk-add past visits for existing patients
-- New visit modal with date + medicine + fee tracking
-- Auto-sorts chronologically, saves in one go
+</div>
 
 ---
 
-## 🏗️ Tech Stack
+## The Problem
 
-| Layer | Tech |
-|-------|------|
-| **UI Framework** | React 18 + TypeScript |
-| **Build** | Vite 6.4.1 |
-| **Styling** | TailwindCSS 3.4 + custom tokens |
-| **Database** | Dexie 4 (IndexedDB wrapper) |
-| **Search** | Fuse.js 7 (fuzzy matching) |
-| **Virtualization** | react-window (FixedSizeList, VariableSizeList) |
-| **PWA** | vite-plugin-pwa 0.21 |
+A solo practitioner sees **60–90 patients a day**. Every thirty seconds matters. The existing tools are:
+
+- ❌ Slow — cloud round-trips before every page loads
+- ❌ Cluttered — six tabs when you need one screen
+- ❌ Fragile — WiFi drops and the session dies
+- ❌ Imprecise — no concept of potency, tincture, or biochemic salt
+
+And the handwritten register? **Lost, illegible, and impossible to search.**
+
+## The Solution
+
+> **One screen. Three panels. Zero network dependency.**
+
+Clinic Memory OS is a **React + IndexedDB PWA** that boots in under a second, works fully offline, auto-saves every keystroke, and fits the entire consultation workflow on a single view — patient history on the left, prescription cockpit in the center, payment on the right.
 
 ---
 
-## 📦 Installation & Usage
+## Feature Tour
 
-### Development
+### `LEFT PANEL` — Patient Timeline
+
+| Feature | Detail |
+|---------|--------|
+| **Instant fuzzy search** | Fuse.js — search by name, medicine prescribed, or symptom in < 50 ms |
+| **Medicine chips** | Last visit's prescriptions shown as coloured chips on the patient row |
+| **Inline add patient** | No modal — a single text field appears in the list, Enter to confirm |
+| **Auto-focus on load** | Cursor lands in the search box; just start typing |
+| **Virtualized list** | react-window `FixedSizeList` — 10,000 patients scroll at 60 fps |
+
+---
+
+### `CENTER PANEL` — Medicine Cockpit
+
+#### Prescription Slots
+Up to **8 medicine slots** (3 by default). The active slot glows with an accent ring and a numbered badge.
+
+```
+┌─────────────────────────────────────────────────────┐
+│  ●1  NV  Nux Vomica             30   BD·AC·5d ✎  ✕  │
+│  ○2  BS  Berberis Vulgaris      💧Ø  HS·10d    ✕  │
+│  ○3  ─── Empty ─────────────────────────────────  │
+│  + Add slot                                         │
+└─────────────────────────────────────────────────────┘
+```
+
+#### Three-Mode Dosage System
+
+| Mode | Trigger | What you see |
+|------|---------|-------------|
+| **Quick** (default) | Medicine selected | 4 preset chips + pill/drop qty |
+| **Compact** | Both freq & qty chosen | Collapsed `BD·AC·5d·2p ✎` pill — 1 tap to edit |
+| **Custom** | Tap "Custom…" or ✎ | Full Freq / Food / Days / Qty rows |
+
+**Preset chips** — one tap fills three fields simultaneously:
+
+| Chip | Means |
+|------|-------|
+| `BD · AC · 5d` | Twice daily · before meals · 5 days |
+| `TD · AC · 3d` | Three times · before meals · 3 days |
+| `HS · 10d` | At bedtime · 10 days |
+| `BD · PC · 7d` | Twice daily · after meals · 7 days |
+
+#### Medicine Type Awareness
+
+The shelf intelligently shows **only valid potencies per medicine type:**
+
+| Type | Potencies | Qty unit |
+|------|-----------|---------|
+| **Homeopathic Remedy** (~150) | 6 · 30 · 200 · 1M · 10M | Pills (1p / 2p / 3p / 6p) |
+| **Biochemic Tissue Salt** (13) | 6x · 12x | Pills |
+| **Mother Tincture** (24) | 💧 Ø | Drops (5 / 10 / 15 / 20) |
+
+#### Medicine Shelf
+- **179+ medicines** sorted A–Z in a virtualized `VariableSizeList`
+- Search by **full name** (`Nux Vomica`) or **2-letter code** (`NV`, `BS`, `CH`)
+- Potency buttons adapt per medicine type — tinctures show only `💧Ø`
+
+---
+
+### `RIGHT PANEL` — Payment & Closure
+
+| Feature | Detail |
+|---------|--------|
+| **Fee entry** | Total fee + amount paid; auto-computes due |
+| **Quick fill** | "Paid Full" fills exact amount; "Credit" marks ₹0 paid |
+| **Symptom chips** | 20 alphabetical chips — Acidity, Anxiety, Back Pain … Weakness |
+| **Dues badge** | Red `Outstanding ₹X` — opens per-visit ledger |
+| **Dues ledger** | Edit each visit's payment, mark settled, shows running balance |
+| **Delete patient** | Confirmed deletion with visit count shown, irreversible |
+| **Auto-save** | 300 ms debounce → IndexedDB + localStorage crash recovery |
+
+---
+
+### `GLOBAL` — Keyboard Shortcuts
+
+> Designed for a practitioner who would rather not lift their hand from the desk.
+
+| Key | Action |
+|-----|--------|
+| `1` `2` `3` | Activate medicine slot 1, 2, or 3 |
+| `Enter` | New visit (or Repeat & Modify if patient has history) |
+| `Esc` | Clear search · re-focus patient list |
+| `b` | Apply preset **BD · AC · 5d** to active slot |
+| `t` | Apply preset **TD · AC · 3d** to active slot |
+| `h` | Apply preset **HS · 10d** to active slot |
+| `p` | Apply preset **BD · PC · 7d** to active slot |
+
+> Shortcuts fire only when no input/textarea/button has focus — never interfere with typing.
+
+---
+
+### `HEADER` — How to Use Tutorial
+
+A **10-step interactive spotlight tutorial** walks new users through the entire workflow:
+Patient search → New visit → Prescribing → Dosage system → Keyboard shortcuts → Symptoms → Payment → Import history → Dues ledger → Patient deletion.
+
+Navigate with `←` `→` keys or click the pill indicators. Spotlight highlights the exact panel being explained.
+
+---
+
+### `IMPORT` — Bulk History Migration
+
+For patients already on treatment — enter all past visits at once:
+
+- Pick or create a patient
+- Add each past visit (date, medicines with **full dosage details**, fee)
+- Potency dropdown auto-adapts when you select a medicine (tinctures → drops, biochemics → 6x/12x)
+- Saves all visits in a single transaction
+
+---
+
+## Architecture
+
+```
+clinic-memory-os/
+├── src/
+│   ├── App.tsx                    ← Layout · keyboard handler · tutorial · sync UI
+│   ├── components/
+│   │   ├── TimelinePanel.tsx      ← Virtualized patient list · fuzzy search
+│   │   ├── MedicineCockpit.tsx    ← Slots · shelf · 3-mode dosage UI
+│   │   ├── ClosurePanel.tsx       ← Symptoms · fees · dues · delete
+│   │   ├── DuesModal.tsx          ← Per-visit balance ledger
+│   │   └── MigrationModal.tsx     ← Bulk import with dosage support
+│   ├── state/
+│   │   └── useAppState.ts         ← Single useReducer (AppState + AppAction)
+│   ├── db/
+│   │   ├── db.ts                  ← Dexie schema · MedicineEntry type
+│   │   └── seed.ts                ← Demo patients + visit data
+│   ├── search/
+│   │   └── searchEngine.ts        ← Fuse.js module singleton · build/search
+│   ├── hooks/
+│   │   └── useAutosave.ts         ← 300 ms debounce → IndexedDB + localStorage
+│   ├── services/
+│   │   └── syncService.ts         ← Push/pull to MongoDB backend every 30 s
+│   └── data/
+│       └── medicines.ts           ← 179+ medicines · types · potency sets · shortcodes
+│
+└── backend/                       ← Vercel serverless (Express + MongoDB)
+    └── src/server.ts              ← /api/patients · /api/visits · /api/sync
+```
+
+### State Flow
+
+```
+User action
+    │
+    ▼
+AppAction dispatch
+    │
+    ▼
+useReducer (useAppState.ts)
+    │
+    ├─► IndexedDB write (Dexie) ──► Search index rebuild (Fuse.js)
+    │
+    └─► useAutosave debounce (300 ms)
+            └─► localStorage crash snapshot
+```
+
+---
+
+## Data Schema
+
+```typescript
+interface Patient {
+  id:          number       // auto-increment
+  name:        string
+  quick_note:  string
+  created_at:  number       // unix ms
+}
+
+interface MedicineEntry {
+  name:    string
+  potency: string
+  type?:   'remedy' | 'biochemic' | 'tincture'
+  freq?:   string           // 'OD' | 'BD' | 'TD' | 'QD' | 'HS'
+  food?:   string           // 'AC' | 'PC'
+  days?:   number           // 3 | 5 | 7 | 10
+  qty?:    number           // pills: 1/2/3/6  |  drops: 5/10/15/20
+}
+
+interface Visit {
+  id:            number
+  patient_id:    number
+  date:          number      // unix ms
+  symptoms_text: string
+  medicines_json: MedicineEntry[]
+  fee_total:     number
+  amount_paid:   number
+  amount_due:    number
+  visit_number:  number
+}
+```
+
+---
+
+## Tech Stack
+
+| Layer | Choice | Why |
+|-------|--------|-----|
+| **UI** | React 18 + TypeScript | Component model, strong typing |
+| **Build** | Vite 6.4 | Sub-second HMR, fast production builds |
+| **Styling** | TailwindCSS 3.4 + CSS custom properties | Utility classes + design token theming |
+| **Local DB** | Dexie 4 (IndexedDB) | Offline persistence, reactive queries |
+| **Search** | Fuse.js 7 | Client-side fuzzy search, zero latency |
+| **Virtualization** | react-window | 60 fps lists at any dataset size |
+| **PWA** | vite-plugin-pwa 0.21 | Service worker, installable, offline shell |
+| **Backend** | Express + MongoDB on Vercel | Serverless sync endpoint |
+
+---
+
+## Getting Started
 
 ```bash
-# Clone repo
-git clone <repo-url>
-cd clinic-memory-os
+# 1. Clone
+git clone https://github.com/mdhaarishussain/Rashid-Pharmacy.git
+cd Rashid-Pharmacy/clinic-memory-os
 
-# Install dependencies
+# 2. Install
 npm install
 
-# Start dev server (localhost:5174)
+# 3. Develop (localhost:5174 with HMR)
 npm run dev
 
-# Type-check
+# 4. Type-check
 npx tsc -b --noEmit
 
-# Build for production
+# 5. Production build
 npm run build
 ```
 
-### Deployment
+### Environment Variables (optional — for cloud sync)
 
-#### **Vercel (Recommended)**
-1. Push to GitHub
-2. Go to [vercel.com](https://vercel.com)
-3. Import project → auto-detects Vite → deploy
-4. Production build in `dist/` folder auto-served
+```env
+# clinic-memory-os/.env.local
+VITE_API_URL=https://your-backend.vercel.app
+VITE_API_KEY=your-secret-key
+```
 
-#### **Electron (Desktop App)**
+Without these the app works entirely offline with no sync.
+
+### Deploy Frontend
+
+**Vercel (zero-config):**
 ```bash
-npm install --save-dev electron electron-builder
-
-# In main.js:
-const { app, BrowserWindow } = require('electron');
-// Load file:///path-to-dist/index.html
-
-npm run build:electron
+vercel --prod
 ```
 
-#### **Self-Hosted**
-- Copy `dist/` folder to any static host (nginx, Apache, Firebase Hosting)
-- App works **completely offline** after first load (service worker enabled)
+**Any static host:**
+```bash
+npm run build
+# Serve the dist/ folder — that's the entire app
+```
 
----
+### Deploy Backend
 
-## 🎨 Design Philosophy
-
-### Light Theme (60+ Year Old Practitioner)
-- **Surface**: `#f0f5fb` (soft pale blue)
-- **Primary text**: `#1b3649` (dark navy)
-- **Accent**: `#0369a1` (sky blue, high contrast)
-- **Large fonts** (14px body, 16-18px headings)
-- **Wide scrollbars**, **big touch targets** (44px minimum)
-
-### Responsive Design
-- **Desktop (lg+)**: 3-panel layout side-by-side
-- **Tablet/Mobile**: Tab-based navigation (Patients → Medicines → Payment)
-  - Only MedicineCockpit shows by default (most interactive)
-  - Swipe-friendly tab bar
-
----
-
-## 📊 Database Schema
-
-```typescript
-// IndexedDB Dexie
-patients: {
-  id: number (auto-increment)
-  name: string
-  quick_note: string
-  created_at: number (unix ms)
-}
-
-visits: {
-  id: number (auto-increment)
-  patient_id: number (foreign key)
-  date: number (unix ms)
-  symptoms_text: string
-  medicines_json: MedicineEntry[]
-  fee_total: number
-  amount_paid: number
-  amount_due: number
-  visit_number: number
-}
-
-// Search index (in-memory Fuse.js)
-medicineNames: string[]
-symptomTokens: string[]
-visitNumber: number
+```bash
+cd backend
+vercel --prod
+# Set MONGODB_URI and API_KEY in Vercel environment variables
 ```
 
 ---
 
-## 🔄 Autosave & Persistence
+## Design Philosophy
 
-- **Draft saved to localStorage** immediately (crash recovery)
-- **Debounced 300ms** → IndexedDB write
-- **Search index updated** on every visit add/modify
-- **No external API calls** — fully offline
-- **PWA service worker** caches app shell + icons
+The UI was built for a **60+-year-old practitioner** who uses it 8 hours a day on a mid-range Android tablet.
 
----
+| Principle | Implementation |
+|-----------|---------------|
+| **Large targets** | Minimum 44 px touch targets everywhere |
+| **High contrast** | Navy `#1b3649` on pale-blue `#f0f5fb` surface |
+| **Accent** | Sky blue `#0369a1` — high contrast ratio |
+| **No modals for core flow** | Inline patient add, auto-save, no OK dialogs |
+| **Offline-first** | Every keystroke persists locally; sync is additive |
+| **One screen** | No navigation, no breadcrumbs, no page loads |
 
-## 🛠️ Key Files
-
-```
-src/
-├── App.tsx                    # Main layout, keyboard shortcuts, mobile tabs
-├── components/
-│   ├── TimelinePanel.tsx      # Patient search & history
-│   ├── MedicineCockpit.tsx    # Slots + shelf + search
-│   ├── ClosurePanel.tsx       # Payment, dues, delete
-│   ├── DuesModal.tsx          # Outstanding ledger
-│   ├── MigrationModal.tsx     # Bulk import history
-│   └── TutorialModal.tsx      # Interactive spotlight tutorial
-├── db/
-│   ├── db.ts                  # Dexie schema + CRUD
-│   └── seed.ts                # Demo data (155+ medicines)
-├── state/
-│   └── useAppState.ts         # Redux-like state machine
-├── search/
-│   └── searchEngine.ts        # Fuse.js index + addToIndex
-├── hooks/
-│   └── useAutosave.ts         # 300ms debounce → IndexedDB
-└── data/
-    └── medicines.ts           # 179 remedies, getShortCode()
-```
+**Responsive layout:**
+- **Desktop / tablet (≥ 1024 px):** three panels side-by-side, all visible at once
+- **Mobile (< 1024 px):** tab bar with Patients · Medicines · Payment
 
 ---
 
-## 🏥 Demo Data
+## Privacy & Data
 
-**Pre-seeded with:**
-- **179+ homeopathic medicines** (Aconitum, Nux Vomica, Merc Sol, Sulfur, etc.)
-- **Potencies**: 6, 30, 200, 1M, 10M
-- **Drop/tincture remedies**: Crataegus, Chelidonium, Justicia, etc.
-- **5 demo patients** with visit history (ready to explore)
-
----
-
-## 🎙️ For Practitioners
-
-### Why This Works in Real Clinic
-✅ **One screen** — no tabs, no dialogs (except modals)  
-✅ **Big buttons** — no precision clicks needed  
-✅ **Auto-save** — no Save button to miss  
-✅ **Offline** — WiFi drops? Still works  
-✅ **Fast search** — medicine name appears in <50ms  
-✅ **Keyboard shortcuts** — older users love physical keys  
-✅ **Installable** — looks like native app on home screen  
-✅ **Print-friendly** — visit history exports to PDF  
-
-### Training New Users
-1. Launch → shows interactive 8-step tutorial
-2. "How to Use" button (header) — replay anytime
-3. Type `NV` in shelf to find Nux Vomica instantly
-4. Click medicine slot, then pick potency
-5. Drag down to Payment section, record fee
-6. All auto-saves — just refresh if nervous
+| Property | Status |
+|----------|--------|
+| Local storage | IndexedDB on your device |
+| Network calls | Only when `VITE_API_URL` is set |
+| Analytics / tracking | None |
+| Login required | No |
+| Patient data leaves device | Only on explicit sync, opt-in |
 
 ---
 
-## 🔐 Privacy & Data
+## License
 
-- ✅ **No cloud sync** — data stays on your device
-- ✅ **No tracking** — no analytics, no beacons
-- ✅ **No login required** — instant start
-- ✅ **Export** — right-click visit history → save JSON
-- ✅ **HIPAA-friendly** — manage patient data locally
-
----
-
-## 🚀 Future Roadmap
-
-- [ ] **PDF receipts** — print visit summaries + fee receipts
-- [ ] **Repeat reminder** — notify if patient due for follow-up
-- [ ] **Multi-device sync** — optional cloud backup (Firebase)
-- [ ] **Voice input** — dictate symptoms (PWA speech API)
-- [ ] **Barcode scan** — quick patient lookup via QR code
-- [ ] **Dark mode** — for late-night clinics
-
----
-
-## 📝 License
-
-**Proprietary Software**  
+**Proprietary Software**
 Copyright © 2026 The Last Neuron. All rights reserved.
 
-This software is proprietary and confidential. Unauthorized copying, modification, or distribution is strictly prohibited.
+Unauthorized copying, modification, or distribution — in whole or in part — is strictly prohibited.
 
 ---
 
-## 👨‍⚕️ About
+<div align="center">
 
-Built as a **single-screen consultation cockpit** for **Dr. Saood Ahmad** at **Rashid Pharmacy**, this PWA is a proprietary product of **The Last Neuron**—demonstrating that **enterprise software doesn't need to be complex**. Sometimes simplicity is the ultimate tool.
+**Rashid Pharmacy · Dr. Saood Ahmad · Consultation Cockpit**
 
-**Homeopathy. Clarity. Results.**
+*Built by [The Last Neuron](https://github.com/mdhaarishussain) · Homeopathy. Clarity. Results.*
 
----
-
-## 📧 Support
-
-Found a bug? Want a feature? Open an issue or reach out—practitioners' feedback drives every update.
-
-```
-Rashid Pharmacy
-Dr. Saood Ahmad · Consultation Cockpit
-2026
-```
+</div>

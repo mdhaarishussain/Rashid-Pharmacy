@@ -1,10 +1,16 @@
 import Dexie, { type EntityTable } from 'dexie'
+import type { MedicineType } from '../data/medicines'
 
 // ─── Domain types ────────────────────────────────────────────────────────────
 
 export interface MedicineEntry {
   name: string
   potency: string
+  type?: MedicineType  // stored so tincture/biochemic behaviour survives potency changes
+  freq?: string        // 'OD' | 'BD' | 'TD' | 'QD' | 'HS'
+  food?: string        // 'AC' | 'PC'
+  days?: number        // 3 | 5 | 7 | 10
+  qty?: number         // pills count (1/2/3/6) or drops count (5/10/15/20)
 }
 
 export interface Patient {
