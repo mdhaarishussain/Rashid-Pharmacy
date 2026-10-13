@@ -20,8 +20,14 @@ describe('sanitizePatient', () => {
 describe('sanitizePatient identity fields', () => {
   const base = { uid: 'u1', name: 'A', updated_at: 5 }
 
-  it('defaults missing fields to null so old clients still sync', () => {
-    expect(sanitizePatient(base)).toMatchObject({ phone: null, sex: null, birth_year: null })
+  it('omits fields an older client did not send, so the stored values are kept', () => {
+    const p = sanitizePatient(base)!
+    expect('phone' in p || 'sex' in p || 'birth_year' in p).toBe(false)
+    expect(sanitizeVisit({ uid: 'v1', patient_uid: 'p1', updated_at: 1 })!).not.toHaveProperty('follow_up_date')
+  })
+
+  it('keeps an explicit null so a newer client can clear a field', () => {
+    expect(sanitizePatient({ ...base, phone: null, sex: null, birth_year: null })).toMatchObject({ phone: null, sex: null, birth_year: null })
   })
 
   it('accepts a valid phone, sex and birth year', () => {
@@ -58,7 +64,7 @@ describe('sanitizeVisit follow_up_date', () => {
 
   it('keeps a positive number and nulls everything else', () => {
     expect(sanitizeVisit({ ...base, follow_up_date: 1_700_000_000_000 })!.follow_up_date).toBe(1_700_000_000_000)
-    expect(sanitizeVisit(base)!.follow_up_date).toBeNull()
+    expect(sanitizeVisit(base)!).not.toHaveProperty('follow_up_date')
     for (const follow_up_date of [0, -5, '123', NaN, Infinity, null]) {
       expect(sanitizeVisit({ ...base, follow_up_date })!.follow_up_date).toBeNull()
     }

@@ -111,9 +111,12 @@ describe('identity and follow-up fields on the wire', () => {
     expect(v.follow_up_date).toBeNull()
   })
 
-  it('old records without the fields still sanitize on the server', () => {
-    expect(sanitizePatient({ uid: 'u', name: 'A', updated_at: 1 })).toMatchObject({ phone: null, sex: null, birth_year: null })
-    expect(sanitizeVisit({ uid: 'v', patient_uid: 'u', updated_at: 1 })).toMatchObject({ follow_up_date: null })
+  it('old records without the fields still sanitize on the server, leaving stored values alone', () => {
+    const p = sanitizePatient({ uid: 'u', name: 'A', updated_at: 1 })!
+    expect(p).toMatchObject({ uid: 'u', name: 'A' })
+    expect(p).not.toHaveProperty('phone')
+    expect(p).not.toHaveProperty('birth_year')
+    expect(sanitizeVisit({ uid: 'v', patient_uid: 'u', updated_at: 1 })!).not.toHaveProperty('follow_up_date')
   })
 })
 

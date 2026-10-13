@@ -23,6 +23,9 @@ export const V2_COLLECTIONS: Record<Kind, string> = {
   visits: 'visits_v2',
 }
 
+const withoutUndefined = (rec: object) =>
+  Object.fromEntries(Object.entries(rec).filter(([, v]) => v !== undefined))
+
 const MAX_PUSH = 500
 const MAX_PULL = 1000
 
@@ -49,7 +52,8 @@ async function upsertKind(kind: Kind, raw: unknown[]) {
       updateOne: {
         // Guard against a concurrent newer write landing between find and write
         filter: { uid: rec.uid, $or: [{ updated_at: { $lt: rec.updated_at } }, { updated_at: { $exists: false } }] },
-        update: { $set: { ...rec, synced_at } },
+        // Fields an older client didn't send stay as stored (the driver would write undefined as null)
+        update: { $set: { ...withoutUndefined(rec), synced_at } },
         upsert: true,
       },
     })),

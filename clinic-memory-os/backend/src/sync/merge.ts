@@ -7,9 +7,10 @@ export interface WirePatient {
   created_at: number
   updated_at: number
   deleted_at: number | null
-  phone: string | null
-  sex: 'M' | 'F' | 'O' | null
-  birth_year: number | null
+  // Optional: absent = sent by an older app version, so the stored value is kept
+  phone?: string | null
+  sex?: 'M' | 'F' | 'O' | null
+  birth_year?: number | null
 }
 
 export interface WireVisit {
@@ -24,7 +25,7 @@ export interface WireVisit {
   visit_number: number
   updated_at: number
   deleted_at: number | null
-  follow_up_date: number | null
+  follow_up_date?: number | null
 }
 
 export type Kind = 'patients' | 'visits'
@@ -65,9 +66,9 @@ export function sanitizePatient(raw: any): WirePatient | null {
     created_at: optTime(raw.created_at) ?? updated_at,
     updated_at,
     deleted_at: optTime(raw.deleted_at),
-    phone: sanitizePhone(raw.phone),
-    sex: sanitizeSex(raw.sex),
-    birth_year: sanitizeBirthYear(raw.birth_year),
+    ...('phone' in raw && { phone: sanitizePhone(raw.phone) }),
+    ...('sex' in raw && { sex: sanitizeSex(raw.sex) }),
+    ...('birth_year' in raw && { birth_year: sanitizeBirthYear(raw.birth_year) }),
   }
 }
 
@@ -90,7 +91,7 @@ export function sanitizeVisit(raw: any): WireVisit | null {
     visit_number: Math.max(1, Math.floor(finite(raw.visit_number, 1))),
     updated_at,
     deleted_at: optTime(raw.deleted_at),
-    follow_up_date: optTime(raw.follow_up_date),
+    ...('follow_up_date' in raw && { follow_up_date: optTime(raw.follow_up_date) }),
   }
 }
 

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { VariableSizeList, type ListChildComponentProps } from 'react-window'
 import type { MedicineSlot, AppAction } from '../state/useAppState'
-import type { Visit, MedicineEntry } from '../db/db'
+import type { Visit, MedicineEntry, Patient, VisitDraft } from '../db/db'
 import PrescriptionSlip from './PrescriptionSlip'
 import { SHELF_ROWS, type ShelfRow, getShortCode, isDropPotency, getMedicinePotencies } from '../data/medicines'
 
@@ -11,8 +11,8 @@ interface Props {
   slots: MedicineSlot[]
   activeSlotIndex: number
   lastVisit: Visit | null
-  activePatient: { id?: number; name: string } | null
-  draft: { visit_number: number } | null
+  activePatient: Pick<Patient, 'id' | 'name' | 'phone'> | null
+  draft: Pick<VisitDraft, 'visit_number' | 'follow_up_date'> | null
   dispatch: React.Dispatch<AppAction>
 }
 
@@ -61,10 +61,8 @@ function MedicineSlots({
     ? slots.flatMap((s) => (s.medicine ? [s.medicine] : []))
     : lastVisit?.medicines_json ?? []
   const slipDate = !draft && lastVisit ? lastVisit.date : Date.now()
-  // TODO(merge): `phone` (Patient) and `follow_up_date` (Visit/VisitDraft) are being added by another
-  // change; read them defensively until it lands, then drop the casts.
-  const slipPhone = (activePatient as { phone?: string } | null)?.phone
-  const slipNextVisit = ((draft ?? lastVisit) as { follow_up_date?: number | null } | null)?.follow_up_date
+  const slipPhone = activePatient?.phone
+  const slipNextVisit = (draft ?? lastVisit)?.follow_up_date
 
   const handleInitDraft = useCallback(() => {
     if (!activePatient) return
