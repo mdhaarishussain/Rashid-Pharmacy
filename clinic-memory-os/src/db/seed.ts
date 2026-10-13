@@ -57,7 +57,16 @@ const visitTemplates: VisitTemplate[][] = [
   ],
 ]
 
-export async function seedDemoData(): Promise<void> {
+let seeding: Promise<void> | null = null
+
+// React StrictMode runs the bootstrap effect twice in dev — share one run so
+// both calls don't pass the SEED_KEY check and insert the demo patients twice.
+export function seedDemoData(): Promise<void> {
+  seeding ??= seed()
+  return seeding
+}
+
+async function seed(): Promise<void> {
   if (localStorage.getItem(SEED_KEY)) return
 
   const now = Date.now()
