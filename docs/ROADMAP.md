@@ -100,7 +100,7 @@ The software isn't the hard part. The goal is to make the doctor reach for the t
 | Phase | Scope | Est. |
 |---|---|---|
 | 0 ✅ | Data safety: UUIDs, incremental sync, tombstones, no prod seed, backup export, tests | done |
-| 1 | Register parity: phone/age, prescription slip + WhatsApp, follow-ups, day-end summary, text-size and ARIA pass | 2 wks |
+| 1 ✅ | Register parity: phone/age, prescription slip + WhatsApp, follow-ups, day-end summary, text-size and ARIA pass | done (Hindi/Urdu slip wording needs a native-speaker check) |
 | 2 | Cutover at the uncle's clinic and time study | 2–3 wks (parallel) |
 | 3 | Multi-tenant: Supabase + RLS + OTP auth, per-clinic catalogue and settings, Razorpay | 3–4 wks |
 | 4 | Pilot with 5–10 homeopaths, then ABDM and more specialties | ongoing |
