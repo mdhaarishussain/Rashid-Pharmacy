@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { db } from './db/db'
+import { db, getVisitsByPatient } from './db/db'
 import { seedDemoData } from './db/seed'
 import { buildIndex, search } from './search/searchEngine'
 import { useAppState } from './state/useAppState'
@@ -9,6 +9,7 @@ import TimelinePanel from './components/TimelinePanel'
 import MedicineCockpit from './components/MedicineCockpit'
 import ClosurePanel from './components/ClosurePanel'
 import MigrationModal from './components/MigrationModal'
+import DaySummary from './components/DaySummary'
 import { BackupModal, BackupReminder, ConnectSyncModal, SyncStatus, needsBackupReminder } from './components/DataSafety'
 import { getLastBackup } from './services/backup'
 import {
@@ -289,6 +290,7 @@ export default function App() {
   const [syncConnected, setSyncConnected] = useState(() => isSyncConfigured())
   const [showConnect, setShowConnect] = useState(false)
   const [showBackup, setShowBackup] = useState(false)
+  const [showSummary, setShowSummary] = useState(false)
   const [showReminder, setShowReminder] = useState(false)
   const searchQueryRef = useRef(state.searchQuery)
   searchQueryRef.current = state.searchQuery
@@ -306,7 +308,7 @@ export default function App() {
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement
       if (target.closest('input, textarea, select, button')) return
-      if (showTutorial || showMigration || showConnect || showBackup) return
+      if (showTutorial || showMigration || showConnect || showBackup || showSummary) return
       if (e.key === '1') { e.preventDefault(); dispatch({ type: 'SET_ACTIVE_SLOT', index: 0 }) }
       if (e.key === '2') { e.preventDefault(); dispatch({ type: 'SET_ACTIVE_SLOT', index: 1 }) }
       if (e.key === '3') { e.preventDefault(); dispatch({ type: 'SET_ACTIVE_SLOT', index: 2 }) }
@@ -335,7 +337,7 @@ export default function App() {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [dispatch, showTutorial, showMigration, showConnect, showBackup, state.activePatient, state.draft, state.lastVisit, state.patientVisits.length, state.slots, state.activeSlotIndex])
+  }, [dispatch, showTutorial, showMigration, showConnect, showBackup, showSummary, state.activePatient, state.draft, state.lastVisit, state.patientVisits.length, state.slots, state.activeSlotIndex])
 
   // ── Bootstrap: pairing link + demo seed + build search index + restore draft ──
   useEffect(() => {
@@ -444,6 +446,18 @@ export default function App() {
           }}
         />
       )}
+      {showSummary && (
+        <DaySummary
+          onClose={() => setShowSummary(false)}
+          onOpenPatient={async (id) => {
+            const patient = await db.patients.get(id)
+            if (!patient) return
+            dispatch({ type: 'LOAD_PATIENT', patient, visits: await getVisitsByPatient(id) })
+            setActiveMobileTab('medicines')
+            setShowSummary(false)
+          }}
+        />
+      )}
       {showBackup && <BackupModal onClose={() => setShowBackup(false)} onRestored={refreshIndex} />}
 
       {/* ── Top header bar ─────────────────────────────────────────────────── */}
@@ -479,6 +493,16 @@ export default function App() {
             onSyncNow={runSync}
             onConnect={() => setShowConnect(true)}
           />
+          <button
+            onClick={() => setShowSummary(true)}
+            className="flex items-center gap-1.5 bg-card hover:bg-accent/20 hover:text-accent border border-border hover:border-accent/40 text-muted px-3 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm"
+            title="Today's register, dues and medicine usage"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span className="hidden sm:inline">Today</span>
+          </button>
           <button
             onClick={() => setShowBackup(true)}
             className="flex items-center gap-1.5 bg-card hover:bg-accent/20 hover:text-accent border border-border hover:border-accent/40 text-muted px-3 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm"
