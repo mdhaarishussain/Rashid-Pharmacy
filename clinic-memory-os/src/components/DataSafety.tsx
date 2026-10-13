@@ -272,7 +272,7 @@ export function needsBackupReminder(lastBackup: number | null, lastSyncOk: numbe
 export function BackupReminder({ onBackup, onDismiss }: { onBackup: () => void; onDismiss: () => void }) {
   return (
     <div role="status" className="shrink-0 flex items-center justify-between gap-3 px-5 py-2 bg-warning/10 border-b border-warning/30">
-      <span className="text-sm font-medium text-warning">
+      <span className="text-sm font-medium text-amber-800">
         Your records have not been backed up in over 7 days.
       </span>
       <div className="flex items-center gap-2 shrink-0">

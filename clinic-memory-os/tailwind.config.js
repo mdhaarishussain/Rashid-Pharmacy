@@ -12,10 +12,10 @@ export default {
         card:    '#dce8f2',     // inset/nested background — light blue-grey
         border:  '#b6c8d8',     // borders — visible but gentle
         accent:  '#0369a1',     // primary action — deep sky-blue (WCAG AA)
-        'accent-hover': '#0284c7',
+        'accent-hover': '#075985', // darker on hover keeps white text >= 4.5:1
         success: '#15803d',     // green-700 (WCAG AA on white)
         warning: '#b45309',     // amber-700 (WCAG AA on white)
-        danger:  '#dc2626',     // red-600
+        danger:  '#b91c1c',     // red-700 — 4.5:1+ on every surface token (red-600 failed on card/surface)
         muted:   '#4d6175',     // secondary text on light bg
         primary: '#1b3649',     // main text — near-black navy
       },

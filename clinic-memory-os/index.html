@@ -8,6 +8,14 @@
     <meta name="description" content="Consultation cockpit for homeopathic practitioners" />
     <title>Clinic Memory OS</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <script>
+      /* Apply the saved text size before first paint (keep in sync with src/services/textSize.ts). */
+      try {
+        var s = localStorage.getItem('clinic_os_text_size')
+        var p = { 'A': '100%', 'A+': '112.5%', 'A++': '125%' }
+        if (s && p[s]) document.documentElement.style.fontSize = p[s]
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

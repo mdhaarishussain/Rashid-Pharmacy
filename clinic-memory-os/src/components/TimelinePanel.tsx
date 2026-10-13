@@ -61,6 +61,15 @@ function VisitRow({ index, style, data }: ListChildComponentProps<RowData>) {
         style={style}
         className="flex items-center gap-2 px-4 py-3 cursor-pointer hover:bg-card border-t-2 border-border text-accent"
         onClick={() => onAddNewPatient(query.trim())}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            e.stopPropagation()
+            onAddNewPatient(query.trim())
+          }
+        }}
       >
         <span className="text-xl leading-none font-bold">+</span>
         <span className="text-base">
@@ -86,6 +95,17 @@ function VisitRow({ index, style, data }: ListChildComponentProps<RowData>) {
           : 'hover:bg-card border-l-4 border-transparent'
       }`}
       onClick={() => onSelect(result)}
+      role="button"
+      tabIndex={0}
+      aria-current={isActive ? 'true' : undefined}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && isActive) return // let the global Enter shortcut start a visit
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          e.stopPropagation()
+          onSelect(result)
+        }
+      }}
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2">
@@ -102,13 +122,13 @@ function VisitRow({ index, style, data }: ListChildComponentProps<RowData>) {
           )}
         </div>
         {chips.length > 0 ? (
-          <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+          <div className="flex items-center gap-1 mt-0.5 flex-nowrap overflow-hidden">
             {chips.map((c, ci) => (
               <span
                 key={ci}
-                className={`text-xs px-1.5 py-0.5 rounded font-semibold leading-none ${
+                className={`text-xs px-1.5 py-0.5 rounded font-semibold leading-none shrink-0 ${
                   isActive
-                    ? 'bg-accent/20 text-accent border border-accent/30'
+                    ? 'bg-panel text-accent border border-accent/30'
                     : 'bg-card text-muted border border-border/60'
                 }`}
               >
@@ -117,7 +137,7 @@ function VisitRow({ index, style, data }: ListChildComponentProps<RowData>) {
             ))}
           </div>
         ) : (
-          <div className="text-xs text-muted/50">—</div>
+          <div className="text-xs text-muted" aria-label="No medicines">—</div>
         )}
       </div>
     </div>
@@ -283,17 +303,17 @@ export default function TimelinePanel({ searchQuery, searchResults, dispatch, ac
   }
 
   return (
-    <div id="tutorial-timeline" className="flex flex-col h-full w-full bg-panel border-r border-border shadow-sm lg:border-r">
+    <div id="tutorial-timeline" role="region" aria-label="Patients" className="flex flex-col h-full w-full bg-panel border-r border-border shadow-sm lg:border-r">
       {/* Header */}
       <div className="px-4 pt-4 pb-3 border-b border-border shrink-0 bg-panel">
         <div className="flex items-center justify-between mb-2.5">
           <div className="text-sm font-bold text-primary">Patients</div>
           <button
             onClick={handleOpenNewForm}
-            className="flex items-center gap-1 bg-success/20 hover:bg-success/30 text-success border border-success/30 px-2.5 py-1.5 rounded-lg text-sm font-bold transition-colors"
+            className="flex items-center gap-1 bg-success/20 hover:bg-success/30 text-green-800 border border-success/30 px-2.5 py-1.5 rounded-lg text-sm font-bold transition-colors"
             title="Add a new patient"
           >
-            <span className="text-base leading-none">+</span>
+            <span className="text-base leading-none" aria-hidden="true">+</span>
             <span>New</span>
           </button>
         </div>
@@ -317,7 +337,7 @@ export default function TimelinePanel({ searchQuery, searchResults, dispatch, ac
                 Overdue: <span className="tabular-nums">{dueSummary.overdue}</span>
               </span>
             </span>
-            <span className="text-xs font-semibold text-muted">{dueVisible ? 'Hide' : 'Show'}</span>
+            <span className="text-sm font-semibold text-muted">{dueVisible ? 'Hide' : 'Show'}</span>
           </button>
         )}
         {/* Search input */}
@@ -327,6 +347,7 @@ export default function TimelinePanel({ searchQuery, searchResults, dispatch, ac
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
+            aria-hidden="true"
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
@@ -336,14 +357,16 @@ export default function TimelinePanel({ searchQuery, searchResults, dispatch, ac
             value={localQuery}
             onChange={handleQueryChange}
             placeholder="Name, medicine, symptom…"
+            aria-label="Search patients by name, medicine or symptom"
             className="w-full bg-surface border border-border rounded-lg pl-10 pr-8 py-3 text-base text-primary focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors shadow-sm"
           />
           {localQuery && (
             <button
               onClick={clearQuery}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
+              className="absolute right-1 top-1/2 -translate-y-1/2 p-2 text-muted hover:text-primary"
+              aria-label="Clear search"
             >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
@@ -375,7 +398,7 @@ export default function TimelinePanel({ searchQuery, searchResults, dispatch, ac
                 aria-label="Cancel new patient"
                 className="text-muted hover:text-danger shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -403,25 +426,25 @@ export default function TimelinePanel({ searchQuery, searchResults, dispatch, ac
               const isActive = item.patientId === activePatientId
               const identity = identityLabel(item.patient)
               return (
-                <button
-                  key={item.visitId}
-                  type="button"
-                  role="listitem"
-                  onClick={() => loadPatientById(item.patientId)}
-                  className={`w-full min-h-[56px] flex items-center justify-between gap-2 px-3 py-2 text-left border-l-4 border-b border-b-border/60 transition-colors ${
-                    isActive ? 'bg-accent/10 border-l-accent' : 'border-l-transparent hover:bg-card'
-                  }`}
-                >
-                  <span className="min-w-0">
-                    <span className={`block text-base font-semibold truncate ${isActive ? 'text-accent' : 'text-primary'}`}>
-                      {item.patient.name}
+                <div key={item.visitId} role="listitem">
+                  <button
+                    type="button"
+                    onClick={() => loadPatientById(item.patientId)}
+                    className={`w-full min-h-[56px] flex items-center justify-between gap-2 px-3 py-2 text-left border-l-4 border-b border-b-border/60 transition-colors ${
+                      isActive ? 'bg-accent/10 border-l-accent' : 'border-l-transparent hover:bg-card'
+                    }`}
+                  >
+                    <span className="min-w-0">
+                      <span className={`block text-base font-semibold truncate ${isActive ? 'text-accent' : 'text-primary'}`}>
+                        {item.patient.name}
+                      </span>
+                      {identity && <span className="block text-xs text-muted tabular-nums">{identity}</span>}
                     </span>
-                    {identity && <span className="block text-xs text-muted tabular-nums">{identity}</span>}
-                  </span>
-                  <span className={`shrink-0 text-sm font-bold ${item.daysOverdue > 0 ? 'text-danger' : 'text-warning'}`}>
-                    {dueLabel(item.daysOverdue)}
-                  </span>
-                </button>
+                    <span className={`shrink-0 text-sm font-bold ${item.daysOverdue > 0 ? 'text-danger' : 'text-warning'}`}>
+                      {dueLabel(item.daysOverdue)}
+                    </span>
+                  </button>
+                </div>
               )
             })}
           </div>

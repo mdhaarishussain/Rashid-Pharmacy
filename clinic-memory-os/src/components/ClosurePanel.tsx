@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useId, useState } from 'react'
 import type { AppAction } from '../state/useAppState'
 import type { Patient, VisitDraft } from '../db/db'
 import { deletePatient } from '../db/db'
@@ -7,6 +7,7 @@ import { addDaysToFollowUp, addMonthsToFollowUp, followUpFromInputValue, followU
 import { identityDetail } from '../utils/identity'
 import DuesModal from './DuesModal'
 import PatientEditForm from './PatientEditForm'
+import A11yDialog from './A11yDialog'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,16 +57,20 @@ function SavedIndicator({ savedAt }: { savedAt: number | null }) {
   }, [savedAt])
 
   return (
+    <>
+    <span className="sr-only" role="status" aria-live="polite">{visible ? 'Saved' : ''}</span>
     <div
+      aria-hidden="true"
       className={`flex items-center gap-1 text-sm font-medium text-success transition-opacity duration-500 ${
         visible ? 'opacity-100' : 'opacity-0'
       }`}
     >
-      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
       </svg>
       Saved
     </div>
+    </>
   )
 }
 
@@ -85,18 +90,23 @@ function NumericInput({
   value,
   onChange,
   prefix = '₹',
+  disabled = false,
 }: {
   label: string
   value: number
   onChange: (v: number) => void
   prefix?: string
+  disabled?: boolean
 }) {
+  const inputId = useId()
   return (
     <div>
-      <label className="block text-sm font-medium text-muted mb-1.5">{label}</label>
+      <label htmlFor={inputId} className="block text-sm font-medium text-muted mb-1.5">{label}</label>
       <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted text-base font-medium">{prefix}</span>
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted text-base font-medium" aria-hidden="true">{prefix}</span>
         <input
+          id={inputId}
+          disabled={disabled}
           type="number"
           inputMode="numeric"
           min={0}
@@ -264,6 +274,8 @@ export default function ClosurePanel({
     <div
       className="flex flex-col h-full w-full bg-panel lg:border-l border-border shadow-sm"
       id="tutorial-closure"
+      role="region"
+      aria-label="Payment and notes"
     >
       {showDues && activePatient?.id && (
         <DuesModal
@@ -278,17 +290,18 @@ export default function ClosurePanel({
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center" onClick={() => setShowDeleteConfirm(false)}>
           <div className="absolute inset-0 bg-primary/60 backdrop-blur-sm" />
-          <div
-            className="relative z-10 bg-panel rounded-2xl border-2 border-danger shadow-2xl p-6 w-80 mx-4"
-            onClick={(e) => e.stopPropagation()}
+          <A11yDialog
+            onClose={() => setShowDeleteConfirm(false)}
+            labelledBy="delete-patient-title"
+            className="relative z-10 bg-panel rounded-2xl border-2 border-danger shadow-2xl p-6 w-80 max-w-[calc(100vw-2rem)] mx-4"
           >
             <div className="text-center mb-6">
               <div className="w-16 h-16 bg-danger/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-danger" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-8 h-8 text-danger" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
               </div>
-              <div className="text-xl font-bold text-danger mb-2">Delete Patient?</div>
+              <div id="delete-patient-title" className="text-xl font-bold text-danger mb-2">Delete Patient?</div>
               <div className="text-muted text-sm leading-relaxed">
                 This will permanently delete <strong className="text-primary">{activePatient?.name}</strong> and all {patientVisitCount} visit{patientVisitCount !== 1 ? 's' : ''}.
                 <br /><span className="text-danger font-medium">This cannot be undone.</span>
@@ -309,7 +322,7 @@ export default function ClosurePanel({
                 {deleting ? 'Deleting…' : 'Yes, Delete'}
               </button>
             </div>
-          </div>
+          </A11yDialog>
         </div>
       )}
       <div className="px-4 pt-4 pb-3 border-b border-border shrink-0 flex items-center justify-between">
@@ -317,7 +330,7 @@ export default function ClosurePanel({
         <SavedIndicator savedAt={savedAt} />
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5" tabIndex={0}>
         {/* Patient meta */}
         {activePatient ? (
           <div className="bg-surface border border-border rounded-xl p-4 space-y-2 shadow-sm">
@@ -353,9 +366,9 @@ export default function ClosurePanel({
                 onClick={() => setShowDeleteConfirm(true)}
                 className="shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center text-muted hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
                 title="Delete patient"
-                aria-label="Delete patient"
+                aria-label={`Delete patient ${activePatient.name}`}
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
               </button>
@@ -384,17 +397,17 @@ export default function ClosurePanel({
                 onClick={() => setShowDues(true)}
                 className="w-full flex items-center justify-between bg-danger/10 hover:bg-danger/15 border border-danger/40 rounded-lg px-3 py-2.5 transition-colors mt-1"
               >
-                <span className="flex items-center gap-1.5 text-sm font-bold text-danger">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <span className="flex items-center gap-1.5 text-sm font-bold text-red-700">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
                   Outstanding
                 </span>
-                <span className="text-base font-black text-danger">₹{totalOutstanding}</span>
+                <span className="text-base font-black text-red-700">₹{totalOutstanding}</span>
               </button>
             ) : patientVisitCount > 0 ? (
-              <div className="flex items-center justify-center gap-1.5 text-xs text-success font-medium pt-1">
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="flex items-center justify-center gap-1.5 text-sm text-success font-medium pt-1">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                 </svg>
                 All dues cleared
@@ -409,20 +422,23 @@ export default function ClosurePanel({
 
         {/* Notes */}
         <div>
-          <label className="block text-sm font-medium text-muted mb-1.5">Symptoms / Notes</label>
+          <label htmlFor="symptoms-notes" className="block text-sm font-medium text-muted mb-1.5">Symptoms / Notes</label>
           {/* Quick symptom chips */}
           <div className={`flex flex-wrap gap-1.5 mb-2 ${!draft ? 'opacity-40 pointer-events-none' : ''}`}>
             {QUICK_SYMPTOMS.map((s) => (
               <button
                 key={s}
                 onClick={() => handleAddSymptom(s)}
-                className="text-xs bg-card hover:bg-accent hover:text-panel border border-border hover:border-accent px-2 py-1 rounded-lg transition-colors font-medium text-muted"
+                disabled={!draft}
+                aria-label={`Add symptom ${s}`}
+                className="text-sm bg-card hover:bg-accent hover:text-panel border border-border hover:border-accent px-2 py-1 rounded-lg transition-colors font-medium text-muted"
               >
                 {s}
               </button>
             ))}
           </div>
           <textarea
+            id="symptoms-notes"
             value={draft?.symptoms_text ?? ''}
             onChange={handleSymptomsChange}
             disabled={!draft}
@@ -442,11 +458,13 @@ export default function ClosurePanel({
           <NumericInput
             label="Total Fee"
             value={draft?.fee_total ?? 0}
+            disabled={!draft}
             onChange={handleFeeChange}
           />
           <NumericInput
             label="Paid"
             value={draft?.amount_paid ?? 0}
+            disabled={!draft}
             onChange={handlePaidChange}
           />
 
@@ -458,7 +476,7 @@ export default function ClosurePanel({
               ? 'bg-warning/10 border-warning/40 shadow-sm'
               : 'bg-surface border-border shadow-sm'
           }`}>
-            <span className={`text-base font-bold ${isDue ? 'text-danger' : 'text-muted'}`}>
+            <span className={`text-base font-bold ${isDue ? 'text-red-700' : 'text-muted'}`}>
               {isDue ? '⚠ Due' : 'Due'}
             </span>
             <span
@@ -467,7 +485,7 @@ export default function ClosurePanel({
               }`}
             >
               ₹{Math.abs(amountDue)}
-              {isOverpaid && <span className="text-xs text-muted ml-1 font-normal">(overpaid)</span>}
+              {isOverpaid && <span className="text-sm text-muted ml-1 font-normal">(overpaid)</span>}
             </span>
           </div>
 
@@ -475,13 +493,15 @@ export default function ClosurePanel({
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={handlePaidFull}
-              className="bg-success/20 hover:bg-success/30 text-success border border-success/30 rounded-lg py-3 text-base font-semibold transition-colors shadow-sm"
+              disabled={!draft}
+              className="bg-success/20 hover:bg-success/30 text-green-800 border border-success/30 rounded-lg py-3 text-base font-semibold transition-colors shadow-sm"
             >
               Paid Full
             </button>
             <button
               onClick={handleMarkCredit}
-              className="bg-warning/20 hover:bg-warning/30 text-warning border border-warning/30 rounded-lg py-3 text-base font-semibold transition-colors shadow-sm"
+              disabled={!draft}
+              className="bg-warning/20 hover:bg-warning/30 text-amber-800 border border-warning/30 rounded-lg py-3 text-base font-semibold transition-colors shadow-sm"
             >
               Credit
             </button>

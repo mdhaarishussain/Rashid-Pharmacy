@@ -34,7 +34,7 @@ const PRESETS: Array<{ label: string; patch: Partial<MedicineEntry> }> = [
 
 function chipCls(active: boolean): string {
   return (
-    'text-xs px-1.5 py-0.5 rounded-md font-semibold border transition-colors shrink-0 ' +
+    'text-sm px-2 py-1 rounded-md font-semibold border transition-colors shrink-0 ' +
     (active
       ? 'bg-accent text-panel border-accent'
       : 'bg-surface text-muted border-border hover:border-accent hover:text-accent')
@@ -117,7 +117,7 @@ function MedicineSlots({
         <div className="mb-3 bg-card rounded-xl p-3 border border-border shadow-sm">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-bold text-primary">Last Visit</span>
-            <span className="text-xs text-muted">
+            <span className="text-sm text-muted">
               {new Date(lastVisit.date).toLocaleDateString('en-IN', {
                 day: 'numeric',
                 month: 'short',
@@ -132,11 +132,11 @@ function MedicineSlots({
                 className="text-sm bg-panel border border-border px-2.5 py-1 rounded-lg text-primary font-medium shadow-sm inline-block max-w-[12rem]"
               >
                 <span className="truncate block leading-snug">{m.name}</span>
-                <span className={`font-semibold ${isDropPotency(m.potency) ? 'text-sky-400' : 'text-accent'}`}>
+                <span className={`font-semibold ${isDropPotency(m.potency) ? 'text-sky-700' : 'text-accent'}`}>
                   {isDropPotency(m.potency) ? '💧' : ''}{m.potency}
                 </span>
                 {(m.freq || m.food || m.days || m.qty) && (
-                  <span className="block text-xs text-muted font-mono mt-0.5">
+                  <span className="block text-sm text-muted font-mono mt-0.5">
                     {[
                       m.freq,
                       m.food,
@@ -226,10 +226,10 @@ function SlotRow({
 
   // Potency badge colour
   const potencyCls = isTincture
-    ? 'bg-sky-500/10 border border-sky-400/30 text-sky-400'
+    ? 'bg-sky-500/10 border border-sky-400/30 text-sky-700'
     : isBiochemic
-    ? 'bg-emerald-500/10 border border-emerald-400/30 text-emerald-400'
-    : 'bg-accent/10 border border-accent/30 text-accent'
+    ? 'bg-emerald-500/10 border border-emerald-400/30 text-emerald-700'
+    : 'bg-panel border border-accent/30 text-accent'
 
   const presetIsActive = (p: (typeof PRESETS)[number]) =>
     med?.freq === p.patch.freq &&
@@ -244,6 +244,9 @@ function SlotRow({
           : 'border border-border bg-panel hover:border-accent/50 hover:bg-card shadow-sm'
       }`}
       onClick={() => dispatch({ type: 'SET_ACTIVE_SLOT', index })}
+      role="group"
+      aria-label={`Slot ${index + 1}${med ? `: ${med.name} ${med.potency}` : ', empty'}`}
+      aria-current={isActive ? 'true' : undefined}
     >
       {/* ── Row 1: medicine info bar ── */}
       <div className="flex items-center gap-2 px-3 py-2.5 min-w-0">
@@ -261,7 +264,7 @@ function SlotRow({
         {med ? (
           <>
             {/* Shortcode */}
-            <span className="text-xs font-black text-accent bg-accent/10 border border-accent/25 px-1.5 py-0.5 rounded font-mono shrink-0">
+            <span className="text-sm font-black text-accent bg-panel border border-accent/25 px-1.5 py-0.5 rounded font-mono shrink-0">
               {getShortCode({ name: med.name, abbr: '' })}
             </span>
             {/* Name */}
@@ -276,11 +279,12 @@ function SlotRow({
             {isCompact && (
               <button
                 onClick={(e) => { e.stopPropagation(); setEditMode('custom') }}
-                className="flex items-center gap-1.5 text-xs bg-accent/5 border border-accent/20 rounded-lg px-2 py-1 text-accent hover:bg-accent/10 transition-colors shrink-0 font-mono font-semibold"
+                className="flex items-center gap-1.5 text-sm bg-accent/5 border border-accent/20 rounded-lg px-2 py-1 text-accent hover:bg-accent/10 transition-colors shrink-0 font-mono font-semibold"
                 title="Edit dosage"
+                aria-label={`Edit dosage: ${dosageSummary}`}
               >
                 {dosageSummary}
-                <svg className="w-2.5 h-2.5 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-2.5 h-2.5 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                 </svg>
               </button>
@@ -297,20 +301,22 @@ function SlotRow({
           {med && (
             <button
               onClick={(e) => { e.stopPropagation(); dispatch({ type: 'CLEAR_SLOT', slotIndex: index }) }}
-              className="text-muted hover:text-danger transition-colors p-0.5"
+              className="text-muted hover:text-danger transition-colors p-1.5"
               title="Clear medicine"
+              aria-label={`Clear medicine from slot ${index + 1}`}
             >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           )}
           <button
             onClick={(e) => { e.stopPropagation(); dispatch({ type: 'REMOVE_SLOT', slotIndex: index }) }}
-            className="text-border hover:text-danger transition-colors p-0.5"
+            className="text-muted hover:text-danger transition-colors p-1.5"
             title="Remove slot"
+            aria-label={`Remove slot ${index + 1}`}
           >
-            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
             </svg>
           </button>
@@ -333,7 +339,8 @@ function SlotRow({
                     onClick={() =>
                       dispatch({ type: 'UPDATE_SLOT_MEDICINE', slotIndex: index, patch: p.patch })
                     }
-                    className={`text-xs px-2.5 py-1.5 rounded-lg border font-semibold transition-colors ${
+                    aria-pressed={presetIsActive(p)}
+                    className={`text-sm px-2.5 py-1.5 rounded-lg border font-semibold transition-colors ${
                       presetIsActive(p)
                         ? 'bg-accent/15 border-accent text-accent'
                         : 'bg-card border-border text-muted hover:border-accent hover:text-accent'
@@ -344,7 +351,7 @@ function SlotRow({
                 ))}
                 <button
                   onClick={() => setEditMode('custom')}
-                  className="text-xs px-2.5 py-1.5 rounded-lg border border-dashed border-border text-muted hover:border-accent hover:text-accent transition-colors"
+                  className="text-sm px-2.5 py-1.5 rounded-lg border border-dashed border-border text-muted hover:border-accent hover:text-accent transition-colors"
                 >
                   Custom…
                 </button>
@@ -352,7 +359,7 @@ function SlotRow({
 
               {/* Qty row */}
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-xs font-semibold text-muted w-8 shrink-0">
+                <span className="text-sm font-semibold text-muted w-9 shrink-0">
                   {isTincture ? '💧' : 'Qty'}
                 </span>
                 {qtyCh.map((n) => (
@@ -361,6 +368,7 @@ function SlotRow({
                     onClick={() =>
                       dispatch({ type: 'UPDATE_SLOT_MEDICINE', slotIndex: index, patch: { qty: med.qty === n ? undefined : n } })
                     }
+                    aria-pressed={med.qty === n}
                     className={chipCls(med.qty === n)}
                   >
                     {isTincture ? '💧' : ''}{n}{isTincture ? '' : 'p'}
@@ -372,13 +380,14 @@ function SlotRow({
             <>
               {/* Freq + food row */}
               <div className="flex items-center gap-1 flex-wrap">
-                <span className="text-xs font-semibold text-muted w-8 shrink-0">Freq</span>
+                <span className="text-sm font-semibold text-muted w-9 shrink-0">Freq</span>
                 {FREQ_CHIPS.map((f) => (
                   <button
                     key={f}
                     onClick={() =>
                       dispatch({ type: 'UPDATE_SLOT_MEDICINE', slotIndex: index, patch: { freq: med.freq === f ? undefined : f } })
                     }
+                    aria-pressed={med.freq === f}
                     className={chipCls(med.freq === f)}
                   >
                     {f}
@@ -391,6 +400,7 @@ function SlotRow({
                     onClick={() =>
                       dispatch({ type: 'UPDATE_SLOT_MEDICINE', slotIndex: index, patch: { food: med.food === f ? undefined : f } })
                     }
+                    aria-pressed={med.food === f}
                     className={chipCls(med.food === f)}
                   >
                     {f}
@@ -400,20 +410,21 @@ function SlotRow({
 
               {/* Days + qty row */}
               <div className="flex items-center gap-1 flex-wrap">
-                <span className="text-xs font-semibold text-muted w-8 shrink-0">Days</span>
+                <span className="text-sm font-semibold text-muted w-9 shrink-0">Days</span>
                 {DAYS_CHIPS.map((d) => (
                   <button
                     key={d}
                     onClick={() =>
                       dispatch({ type: 'UPDATE_SLOT_MEDICINE', slotIndex: index, patch: { days: med.days === d ? undefined : d } })
                     }
+                    aria-pressed={med.days === d}
                     className={chipCls(med.days === d)}
                   >
                     {d}d
                   </button>
                 ))}
                 <span className="text-border mx-0.5 shrink-0 text-xs">·</span>
-                <span className="text-xs font-semibold text-muted shrink-0">
+                <span className="text-sm font-semibold text-muted shrink-0">
                   {isTincture ? '💧' : 'Qty'}
                 </span>
                 {qtyCh.map((n) => (
@@ -422,6 +433,7 @@ function SlotRow({
                     onClick={() =>
                       dispatch({ type: 'UPDATE_SLOT_MEDICINE', slotIndex: index, patch: { qty: med.qty === n ? undefined : n } })
                     }
+                    aria-pressed={med.qty === n}
                     className={chipCls(med.qty === n)}
                   >
                     {isTincture ? '💧' : ''}{n}{isTincture ? '' : 'p'}
@@ -431,7 +443,7 @@ function SlotRow({
 
               <button
                 onClick={() => setEditMode('quick')}
-                className="text-xs text-muted hover:text-accent transition-colors"
+                className="text-sm text-muted hover:text-accent transition-colors"
               >
                 ← Back to presets
               </button>
@@ -490,13 +502,13 @@ function ShelfRowRenderer({
       className="flex items-center gap-3 px-3 hover:bg-card border-b border-border/60 transition-colors"
     >
       {/* 2-letter short code badge */}
-      <div className="w-9 h-9 rounded-lg bg-accent/10 border border-accent/25 flex items-center justify-center shrink-0">
-        <span className="text-xs font-black text-accent tracking-tight">{shortCode}</span>
+      <div className="w-9 h-9 rounded-lg bg-panel border border-accent/25 flex items-center justify-center shrink-0">
+        <span className="text-sm font-black text-accent tracking-tight">{shortCode}</span>
       </div>
 
       <div className="flex-1 min-w-0">
         <div className="text-sm text-primary font-medium truncate leading-snug">{nameDisplay}</div>
-        <div className="text-xs text-muted">{med.abbr}</div>
+        <div className="text-sm text-muted">{med.abbr}</div>
       </div>
 
       {/* Potency buttons — type-appropriate set for this medicine */}
@@ -506,6 +518,7 @@ function ShelfRowRenderer({
           return (
             <button
               key={p}
+              aria-label={`${med.name} ${p}`}
               onClick={() =>
                 dispatch({
                   type: 'SET_SLOT_MEDICINE',
@@ -515,7 +528,7 @@ function ShelfRowRenderer({
               }
               className={
                 isTinc
-                  ? 'text-sm bg-panel hover:bg-sky-500 hover:text-white border-2 border-sky-300/40 hover:border-sky-500 active:scale-95 px-1.5 py-2 rounded-lg transition-all font-mono font-bold min-w-[46px] text-center shadow-sm text-sky-400'
+                  ? 'text-sm bg-panel hover:bg-sky-500 hover:text-white border-2 border-sky-300/40 hover:border-sky-500 active:scale-95 px-1.5 py-2 rounded-lg transition-all font-mono font-bold min-w-[46px] text-center shadow-sm text-sky-700'
                   : 'text-sm bg-panel hover:bg-accent hover:text-panel border-2 border-border hover:border-accent active:scale-95 px-1.5 py-2 rounded-lg transition-all font-mono font-bold min-w-[38px] text-center shadow-sm text-primary'
               }
             >
@@ -616,7 +629,7 @@ export default function MedicineCockpit(props: Props) {
   }
 
   return (
-    <div id="tutorial-cockpit" className="flex flex-col h-full flex-1 bg-surface lg:border-r border-border">
+    <div id="tutorial-cockpit" role="region" aria-label="Prescription" className="flex flex-col h-full flex-1 bg-surface lg:border-r border-border">
       {/* Slots area */}
       <MedicineSlots {...props} />
 
@@ -630,6 +643,7 @@ export default function MedicineCockpit(props: Props) {
               value={shelfQuery}
               onChange={handleShelfSearch}
               placeholder="Filter medicines…"
+              aria-label="Filter medicines"
               className="w-full bg-surface border border-border rounded-lg px-3 py-3 text-base text-primary focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors shadow-sm"
             />
             {shelfQuery && (
@@ -640,9 +654,10 @@ export default function MedicineCockpit(props: Props) {
                   setVisibleRows(SHELF_ROWS)
                   listRef.current?.resetAfterIndex(0)
                 }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
+                className="absolute right-1 top-1/2 -translate-y-1/2 p-2 text-muted hover:text-primary"
+                aria-label="Clear medicine filter"
               >
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>

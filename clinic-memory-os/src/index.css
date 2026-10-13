@@ -64,3 +64,28 @@
     display: none;
   }
 }
+
+/* ── Accessibility: keyboard focus ring (hidden for mouse/touch clicks) ───────
+   !important so it also beats Tailwind's `focus:outline-none` on inputs. */
+:focus-visible {
+  outline: 3px solid #0369a1 !important;
+  outline-offset: 2px !important;
+}
+
+/* Controls sitting on an accent-coloured background need a light ring */
+.focus-on-accent:focus-visible {
+  outline-color: #ffffff !important;
+}
+
+/* ── Accessibility: respect reduced-motion preference ─────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}
