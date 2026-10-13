@@ -34,10 +34,12 @@ export function clearDraftFromStorage() {
 interface UseAutosaveOptions {
   draft: VisitDraft | null
   patientName: string
+  patientPhone?: string
+  patientBirthYear?: number
   dispatch: React.Dispatch<AppAction>
 }
 
-export function useAutosave({ draft, patientName, dispatch }: UseAutosaveOptions) {
+export function useAutosave({ draft, patientName, patientPhone, patientBirthYear, dispatch }: UseAutosaveOptions) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastSavedMedicinesRef = useRef<string>('')
 
@@ -61,6 +63,7 @@ export function useAutosave({ draft, patientName, dispatch }: UseAutosaveOptions
           amount_paid: draft.amount_paid,
           amount_due: draft.amount_due,
           visit_number: draft.visit_number,
+          follow_up_date: draft.follow_up_date ?? null,
         })
 
         dispatch({ type: 'MARK_SAVED', visitId })
@@ -80,8 +83,10 @@ export function useAutosave({ draft, patientName, dispatch }: UseAutosaveOptions
               amount_paid: draft.amount_paid,
               amount_due: draft.amount_due,
               visit_number: draft.visit_number,
+              follow_up_date: draft.follow_up_date ?? null,
             },
-            patientName
+            patientName,
+            { phone: patientPhone, birth_year: patientBirthYear }
           )
         }
 
@@ -95,5 +100,5 @@ export function useAutosave({ draft, patientName, dispatch }: UseAutosaveOptions
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
-  }, [draft, patientName, dispatch])
+  }, [draft, patientName, patientPhone, patientBirthYear, dispatch])
 }

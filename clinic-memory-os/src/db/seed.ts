@@ -1,12 +1,22 @@
 import { db } from './db'
-import type { MedicineEntry } from './db'
+import type { MedicineEntry, Sex } from './db'
+import { birthYearFromAge } from '../utils/identity'
+import { addDaysToFollowUp } from '../utils/followUp'
 
 const SEED_KEY = 'clinic_os_seeded_v1'
 
-const patients = [
-  { name: 'Arjun Mehta', quick_note: 'Chronic asthma, sensitive to cold' },
-  { name: 'Priya Sharma', quick_note: 'Recurrent migraines, left-sided' },
-  { name: 'Mohammed Siddiq', quick_note: 'Arthritis, worse in damp weather' },
+const patients: Array<{
+  name: string
+  quick_note: string
+  phone?: string
+  sex?: Sex
+  age?: number
+  // follow-up on the latest visit: days from today (negative = overdue)
+  followUpInDays?: number
+}> = [
+  { name: 'Arjun Mehta', quick_note: 'Chronic asthma, sensitive to cold', phone: '98765 40021', sex: 'M', age: 41, followUpInDays: -3 },
+  { name: 'Priya Sharma', quick_note: 'Recurrent migraines, left-sided', phone: '98200 15532', sex: 'F', age: 34, followUpInDays: 0 },
+  { name: 'Mohammed Siddiq', quick_note: 'Arthritis, worse in damp weather', phone: '99301 77184', sex: 'M', age: 63, followUpInDays: 12 },
   { name: 'Rekha Nair', quick_note: 'Anxiety, palpitations, insomnia' },
   { name: 'Deepak Verma', quick_note: 'Chronic sinusitis, headaches' },
 ]
@@ -77,6 +87,9 @@ async function seed(): Promise<void> {
       name: p.name,
       quick_note: p.quick_note,
       created_at: now - 200 * 24 * 3600 * 1000,
+      ...(p.phone && { phone: p.phone }),
+      ...(p.sex && { sex: p.sex }),
+      ...(p.age !== undefined && { birth_year: birthYearFromAge(p.age, now) }),
     })) as number
 
     const templates = visitTemplates[i]
@@ -91,6 +104,9 @@ async function seed(): Promise<void> {
         amount_paid: t.paid,
         amount_due: t.fee - t.paid,
         visit_number: j + 1,
+        ...(j === templates.length - 1 && p.followUpInDays !== undefined && {
+          follow_up_date: addDaysToFollowUp(p.followUpInDays, now),
+        }),
       })
     }
   }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addToIndex, buildIndex, removePatientFromIndex, search } from './searchEngine'
+import { addToIndex, buildIndex, removePatientFromIndex, search, updatePatientInIndex } from './searchEngine'
 import type { Patient, Visit } from '../db/db'
 
 const patients: Patient[] = [
@@ -30,5 +30,30 @@ describe('searchEngine', () => {
     removePatientFromIndex(3)
     expect(search('nux')).toEqual([])
     expect(search('').map((r) => r.patientName)).toEqual(['Rahul Khan'])
+  })
+
+  it('finds patients by part of their phone number and carries identity into results', () => {
+    const withIdentity: Patient[] = [
+      { id: 1, name: 'Rahul Khan', quick_note: '', created_at: 0, phone: '+91 98765 43210', birth_year: 1990 },
+      { id: 3, name: 'Rahul Sharma', quick_note: '', created_at: 0, phone: '99111-22333' },
+    ]
+    buildIndex([v(1, 1, 100, 'Belladonna'), v(2, 1, 150, 'Sepia'), v(3, 3, 300, 'Sulphur')], withIdentity)
+    const hit = search('543')
+    expect(hit.map((r) => r.patientId)).toEqual([1]) // one row per patient, newest visit
+    expect(hit[0]).toMatchObject({ visitId: 2, patientPhone: '+91 98765 43210', patientBirthYear: 1990 })
+    expect(search('9111 22').map((r) => r.patientId)).toEqual([3])
+    expect(search('12')).toEqual([]) // too short to count as a number search
+    expect(search('').find((r) => r.patientId === 3)?.patientBirthYear).toBeUndefined()
+  })
+
+  it('keeps identity on incremental adds and applies later edits', () => {
+    buildIndex([v(1, 1, 100, 'Belladonna')], [{ id: 1, name: 'Rahul Khan', quick_note: '', created_at: 0, phone: '98765 43210' }])
+    addToIndex(v(5, 1, 400, 'Sepia'), 'Rahul Khan') // no identity passed: inherited
+    expect(search('98765').map((r) => r.visitId)).toEqual([5])
+    updatePatientInIndex({ id: 1, name: 'Rahul K', quick_note: '', created_at: 0, phone: '70000 11111', birth_year: 1985 })
+    expect(search('98765')).toEqual([])
+    expect(search('70000')[0]).toMatchObject({ patientName: 'Rahul K', patientBirthYear: 1985 })
+    addToIndex(v(6, 4, 500, 'Nux Vomica'), 'New Person', { phone: '88888 77777' })
+    expect(search('77777').map((r) => r.patientName)).toEqual(['New Person'])
   })
 })

@@ -36,6 +36,41 @@ describe('appReducer', () => {
     expect(s.draft).toMatchObject({ fee_total: 500, amount_paid: 200, amount_due: 300 })
   })
 
+  it('SET_FOLLOW_UP stores the date on the draft and marks it dirty; null clears it', () => {
+    let s = appReducer(loaded(), { type: 'INIT_DRAFT', visitNumber: 3 })
+    s = { ...s, draft: { ...s.draft!, dirty: false } }
+    s = appReducer(s, { type: 'SET_FOLLOW_UP', date: 5000 })
+    expect(s.draft).toMatchObject({ follow_up_date: 5000, dirty: true })
+    s = appReducer(s, { type: 'SET_FOLLOW_UP', date: null })
+    expect(s.draft!.follow_up_date).toBeNull()
+  })
+
+  it('SET_FOLLOW_UP does nothing without a draft', () => {
+    const s = loaded()
+    expect(appReducer(s, { type: 'SET_FOLLOW_UP', date: 5000 })).toBe(s)
+  })
+
+  it('Repeat & Modify and new drafts start with no follow-up date', () => {
+    const withFollowUp: AppState = {
+      ...loaded(),
+      lastVisit: { ...lastVisit, follow_up_date: 9999 },
+      patientVisits: [{ ...lastVisit, follow_up_date: 9999 }],
+    }
+    expect(appReducer(withFollowUp, { type: 'REPEAT_AND_MODIFY' }).draft!.follow_up_date).toBeNull()
+    expect(appReducer(loaded(), { type: 'INIT_DRAFT', visitNumber: 3 }).draft!.follow_up_date).toBeNull()
+  })
+
+  it('PATIENT_UPDATED refreshes the active patient without discarding the draft', () => {
+    let s = appReducer(loaded(), { type: 'REPEAT_AND_MODIFY' })
+    const edited = { ...patient, name: 'Rahul Khan', phone: '98765 43210', birth_year: 1990 }
+    s = appReducer(s, { type: 'PATIENT_UPDATED', patient: edited })
+    expect(s.activePatient).toEqual(edited)
+    expect(s.draft).not.toBeNull()
+    expect(s.slots[0].medicine?.name).toBe('Bryonia Alba')
+    // an update for a different patient is ignored
+    expect(appReducer(s, { type: 'PATIENT_UPDATED', patient: { ...edited, id: 2 } })).toBe(s)
+  })
+
   it('caps slots at 8 and never removes the last one', () => {
     let s = loaded()
     for (let i = 0; i < 10; i++) s = appReducer(s, { type: 'ADD_SLOT' })

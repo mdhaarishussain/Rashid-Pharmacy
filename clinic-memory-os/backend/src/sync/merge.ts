@@ -7,6 +7,9 @@ export interface WirePatient {
   created_at: number
   updated_at: number
   deleted_at: number | null
+  phone: string | null
+  sex: 'M' | 'F' | 'O' | null
+  birth_year: number | null
 }
 
 export interface WireVisit {
@@ -21,6 +24,7 @@ export interface WireVisit {
   visit_number: number
   updated_at: number
   deleted_at: number | null
+  follow_up_date: number | null
 }
 
 export type Kind = 'patients' | 'visits'
@@ -28,6 +32,25 @@ export type Kind = 'patients' | 'visits'
 const MAX_UID = 100
 const finite = (v: unknown, fallback = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback)
 const optTime = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null)
+const MAX_PHONE = 20
+const PHONE_RE = /^[0-9+\-\s]+$/
+const SEXES = ['M', 'F', 'O'] as const
+
+/** Digits, +, spaces and dashes only, at most 20 chars; anything else is dropped. */
+export function sanitizePhone(v: unknown): string | null {
+  if (typeof v !== 'string') return null
+  const t = v.trim()
+  return t.length > 0 && t.length <= MAX_PHONE && PHONE_RE.test(t) ? t : null
+}
+
+export function sanitizeSex(v: unknown): 'M' | 'F' | 'O' | null {
+  return SEXES.includes(v as (typeof SEXES)[number]) ? (v as 'M' | 'F' | 'O') : null
+}
+
+export function sanitizeBirthYear(v: unknown, now = Date.now()): number | null {
+  return typeof v === 'number' && Number.isInteger(v) && v >= 1900 && v <= new Date(now).getFullYear() ? v : null
+}
+
 const uidOf = (v: unknown) => (typeof v === 'string' && v.length > 0 && v.length <= MAX_UID ? v : null)
 
 /** Returns a clean record, or null when it cannot be stored (missing uid / timestamp). */
@@ -42,6 +65,9 @@ export function sanitizePatient(raw: any): WirePatient | null {
     created_at: optTime(raw.created_at) ?? updated_at,
     updated_at,
     deleted_at: optTime(raw.deleted_at),
+    phone: sanitizePhone(raw.phone),
+    sex: sanitizeSex(raw.sex),
+    birth_year: sanitizeBirthYear(raw.birth_year),
   }
 }
 
@@ -64,6 +90,7 @@ export function sanitizeVisit(raw: any): WireVisit | null {
     visit_number: Math.max(1, Math.floor(finite(raw.visit_number, 1))),
     updated_at,
     deleted_at: optTime(raw.deleted_at),
+    follow_up_date: optTime(raw.follow_up_date),
   }
 }
 

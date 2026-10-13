@@ -27,7 +27,13 @@ export interface Patient extends SyncMeta {
   name: string
   quick_note: string
   created_at: number // unix ms
+  // Identity — helps tell apart patients with similar names
+  phone?: string
+  sex?: Sex
+  birth_year?: number // the doctor types an age; we store currentYear - age
 }
+
+export type Sex = 'M' | 'F' | 'O'
 
 export interface Visit extends SyncMeta {
   id?: number
@@ -39,6 +45,7 @@ export interface Visit extends SyncMeta {
   amount_paid: number
   amount_due: number
   visit_number: number
+  follow_up_date?: number | null // unix ms, local noon of the day the patient should return
 }
 
 // ─── Draft ───────────────────────────────────────────────────────────────────
@@ -52,6 +59,7 @@ export interface VisitDraft {
   amount_paid: number
   amount_due: number
   visit_number: number
+  follow_up_date?: number | null
   dirty: boolean
 }
 
@@ -93,6 +101,14 @@ class ClinicDB extends Dexie {
           v.dirty = 1
         })
       })
+
+    // v3: patient phone and visit follow-up date become searchable. Both fields
+    // are optional, so Dexie just adds the indexes — no data is rewritten and
+    // the sync metadata on existing rows is left alone.
+    this.version(3).stores({
+      patients: '++id, name, created_at, &uid, dirty, phone',
+      visits: '++id, patient_id, date, visit_number, &uid, dirty, follow_up_date',
+    })
 
     installSyncHooks(this.patients)
     installSyncHooks(this.visits)

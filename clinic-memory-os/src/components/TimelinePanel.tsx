@@ -5,6 +5,9 @@ import { search } from '../search/searchEngine'
 import type { SearchResult } from '../search/searchEngine'
 import type { AppAction } from '../state/useAppState'
 import { getVisitsByPatient } from '../db/db'
+import { loadDue, type DueItem } from '../db/due'
+import { summariseDue } from '../utils/followUp'
+import { cleanPhone, cleanPhoneInput, identityLabel } from '../utils/identity'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -14,6 +17,8 @@ interface Props {
   dispatch: React.Dispatch<AppAction>
   activePatientId: number | null
   searchResetKey?: number
+  /** Changes whenever data may have changed (autosave, sync, edits) so the due strip refreshes. */
+  dueRefreshKey?: string | number
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -21,6 +26,11 @@ interface Props {
 function formatDate(ts: number): string {
   const d = new Date(ts)
   return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+}
+
+function dueLabel(daysOverdue: number): string {
+  if (daysOverdue <= 0) return 'Due today'
+  return daysOverdue === 1 ? 'Overdue 1 day' : `Overdue ${daysOverdue} days`
 }
 
 function abbreviateName(name: string): string {
@@ -64,6 +74,7 @@ function VisitRow({ index, style, data }: ListChildComponentProps<RowData>) {
   if (!result) return null
 
   const isActive = result.patientId === activePatientId
+  const identity = identityLabel({ phone: result.patientPhone, birth_year: result.patientBirthYear })
   const chips = (result.medicineSummary || '').split(' + ').filter(Boolean)
 
   return (
@@ -84,6 +95,11 @@ function VisitRow({ index, style, data }: ListChildComponentProps<RowData>) {
           >
             {abbreviateName(result.patientName)}
           </span>
+          {identity && (
+            <span className="text-xs text-muted shrink-0 tabular-nums" title={result.patientName}>
+              {identity}
+            </span>
+          )}
         </div>
         {chips.length > 0 ? (
           <div className="flex items-center gap-1 mt-0.5 flex-wrap">
@@ -110,7 +126,7 @@ function VisitRow({ index, style, data }: ListChildComponentProps<RowData>) {
 
 // ─── TimelinePanel ────────────────────────────────────────────────────────────
 
-export default function TimelinePanel({ searchQuery, searchResults, dispatch, activePatientId, searchResetKey = 0 }: Props) {
+export default function TimelinePanel({ searchQuery, searchResults, dispatch, activePatientId, searchResetKey = 0, dueRefreshKey = 0 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const newPatientInputRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -118,12 +134,29 @@ export default function TimelinePanel({ searchQuery, searchResults, dispatch, ac
   const [localQuery, setLocalQuery] = useState(searchQuery)
   const [showNewForm, setShowNewForm] = useState(false)
   const [newName, setNewName] = useState('')
+  const [newPhone, setNewPhone] = useState('')
+  const [dueItems, setDueItems] = useState<DueItem[]>([])
+  const [showDue, setShowDue] = useState(false)
+
+  // Follow-ups due today / overdue — one indexed query, refreshed after saves and sync
+  useEffect(() => {
+    let cancelled = false
+    loadDue()
+      .then((items) => { if (!cancelled) setDueItems(items) })
+      .catch((err) => console.error('Could not load follow-ups:', err))
+    return () => { cancelled = true }
+  }, [dueRefreshKey])
+
+  const dueSummary = summariseDue(dueItems)
+  const dueCount = dueSummary.today + dueSummary.overdue
+  const dueVisible = showDue && dueCount > 0
 
   // Debounced search
   const handleQueryChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const val = e.target.value
       setLocalQuery(val)
+      if (val) setShowDue(false) // a new search replaces the due list
       if (debounceRef.current) clearTimeout(debounceRef.current)
       debounceRef.current = setTimeout(() => {
         dispatch({ type: 'SET_SEARCH_QUERY', query: val })
@@ -142,24 +175,31 @@ export default function TimelinePanel({ searchQuery, searchResults, dispatch, ac
     inputRef.current?.focus()
   }, [dispatch])
 
-  const handleSelect = useCallback(
-    async (result: SearchResult) => {
-      const patient = await db.patients.get(result.patientId)
+  const loadPatientById = useCallback(
+    async (patientId: number) => {
+      const patient = await db.patients.get(patientId)
       if (!patient) return
-      const visits = await getVisitsByPatient(result.patientId)
+      const visits = await getVisitsByPatient(patientId)
       dispatch({ type: 'LOAD_PATIENT', patient, visits })
     },
     [dispatch]
   )
 
+  const handleSelect = useCallback(
+    (result: SearchResult) => loadPatientById(result.patientId),
+    [loadPatientById]
+  )
+
   const handleAddNewPatient = useCallback(
-    async (name: string) => {
+    async (name: string, phone = '') => {
       const trimmed = name.trim()
       if (!trimmed) return
+      const cleanedPhone = cleanPhone(phone)
       const id = await db.patients.add({
         name: trimmed,
         quick_note: '',
         created_at: Date.now(),
+        ...(cleanedPhone && { phone: cleanedPhone }),
       })
       const patient = await db.patients.get(id)
       if (!patient) return
@@ -186,20 +226,23 @@ export default function TimelinePanel({ searchQuery, searchResults, dispatch, ac
   const handleOpenNewForm = useCallback(() => {
     setShowNewForm(true)
     setNewName('')
+    setNewPhone('')
   }, [])
 
   const handleCancelNewForm = useCallback(() => {
     setShowNewForm(false)
     setNewName('')
+    setNewPhone('')
   }, [])
 
   const handleSubmitNewPatient = useCallback(async () => {
     const trimmed = newName.trim()
     if (!trimmed) return
-    await handleAddNewPatient(trimmed)
+    await handleAddNewPatient(trimmed, newPhone)
     setShowNewForm(false)
     setNewName('')
-  }, [newName, handleAddNewPatient])
+    setNewPhone('')
+  }, [newName, newPhone, handleAddNewPatient])
 
   const handleNewPatientKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') handleSubmitNewPatient()
@@ -254,6 +297,29 @@ export default function TimelinePanel({ searchQuery, searchResults, dispatch, ac
             <span>New</span>
           </button>
         </div>
+        {/* Due strip — only when someone is due back */}
+        {dueCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowDue((v) => !v)}
+            aria-expanded={dueVisible}
+            aria-controls="due-list"
+            className={`w-full min-h-[44px] mb-2.5 flex items-center justify-between gap-2 rounded-lg border px-3 text-sm font-bold transition-colors ${
+              dueVisible
+                ? 'bg-warning/20 border-warning/50 text-primary'
+                : 'bg-warning/10 border-warning/30 text-primary hover:bg-warning/20'
+            }`}
+          >
+            <span>
+              Due today: <span className="tabular-nums">{dueSummary.today}</span>
+              {' · '}
+              <span className={dueSummary.overdue > 0 ? 'text-danger' : ''}>
+                Overdue: <span className="tabular-nums">{dueSummary.overdue}</span>
+              </span>
+            </span>
+            <span className="text-xs font-semibold text-muted">{dueVisible ? 'Hide' : 'Show'}</span>
+          </button>
+        )}
         {/* Search input */}
         <div className="relative">
           <svg
@@ -286,37 +352,80 @@ export default function TimelinePanel({ searchQuery, searchResults, dispatch, ac
 
         {/* Inline new patient form */}
         {showNewForm && (
-          <div className="mt-2.5 flex gap-2 items-center">
+          <div className="mt-2.5 space-y-2">
+            <div className="flex gap-2 items-center">
+              <input
+                ref={newPatientInputRef}
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={handleNewPatientKeyDown}
+                placeholder="Patient full name…"
+                aria-label="New patient name"
+                className="flex-1 min-w-0 bg-surface border-2 border-accent rounded-lg px-3 py-2.5 min-h-[44px] text-base text-primary focus:outline-none shadow-sm"
+              />
+              <button
+                onClick={handleSubmitNewPatient}
+                className="bg-accent hover:bg-accent-hover text-panel px-3 min-h-[44px] rounded-lg font-bold text-sm transition-colors shadow-sm shrink-0"
+              >
+                Add
+              </button>
+              <button
+                onClick={handleCancelNewForm}
+                aria-label="Cancel new patient"
+                className="text-muted hover:text-danger shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
             <input
-              ref={newPatientInputRef}
-              type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
+              type="tel"
+              inputMode="tel"
+              value={newPhone}
+              onChange={(e) => setNewPhone(cleanPhoneInput(e.target.value))}
               onKeyDown={handleNewPatientKeyDown}
-              placeholder="Patient full name…"
-              className="flex-1 min-w-0 bg-surface border-2 border-accent rounded-lg px-3 py-2.5 text-base text-primary focus:outline-none shadow-sm"
+              placeholder="Phone (optional)"
+              aria-label="New patient phone number (optional)"
+              maxLength={20}
+              className="w-full bg-surface border border-border rounded-lg px-3 py-2.5 min-h-[44px] text-base text-primary focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 shadow-sm"
             />
-            <button
-              onClick={handleSubmitNewPatient}
-              className="bg-accent hover:bg-accent-hover text-panel px-3 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm shrink-0"
-            >
-              Add
-            </button>
-            <button
-              onClick={handleCancelNewForm}
-              className="text-muted hover:text-danger shrink-0"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
           </div>
         )}
       </div>
 
       {/* Visit list — virtualized */}
       <div className="flex-1 overflow-hidden">
-        {listItemCount === 0 ? (
+        {dueVisible ? (
+          <div id="due-list" className="h-full overflow-y-auto" role="list" aria-label="Patients due for follow-up">
+            {dueItems.map((item) => {
+              const isActive = item.patientId === activePatientId
+              const identity = identityLabel(item.patient)
+              return (
+                <button
+                  key={item.visitId}
+                  type="button"
+                  role="listitem"
+                  onClick={() => loadPatientById(item.patientId)}
+                  className={`w-full min-h-[56px] flex items-center justify-between gap-2 px-3 py-2 text-left border-l-4 border-b border-b-border/60 transition-colors ${
+                    isActive ? 'bg-accent/10 border-l-accent' : 'border-l-transparent hover:bg-card'
+                  }`}
+                >
+                  <span className="min-w-0">
+                    <span className={`block text-base font-semibold truncate ${isActive ? 'text-accent' : 'text-primary'}`}>
+                      {item.patient.name}
+                    </span>
+                    {identity && <span className="block text-xs text-muted tabular-nums">{identity}</span>}
+                  </span>
+                  <span className={`shrink-0 text-sm font-bold ${item.daysOverdue > 0 ? 'text-danger' : 'text-warning'}`}>
+                    {dueLabel(item.daysOverdue)}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        ) : listItemCount === 0 ? (
           <div className="p-6 text-center text-muted text-base">No results</div>
         ) : (
           <AutoSizer>
