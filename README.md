@@ -274,8 +274,9 @@ npm install
 # 3. Develop (localhost:5174 with HMR)
 npm run dev
 
-# 4. Type-check
+# 4. Type-check and test
 npx tsc -b --noEmit
+npm test
 
 # 5. Production build
 npm run build
@@ -285,11 +286,14 @@ npm run build
 
 ```env
 # clinic-memory-os/.env.local
-VITE_API_URL=https://your-backend.vercel.app
-VITE_API_KEY=your-secret-key
+VITE_API_URL=https://your-backend.vercel.app/api
 ```
 
-Without these the app works entirely offline with no sync.
+The sync key is **not** a build variable: anything in a `VITE_*` variable ends up in the public JS bundle. Pair each device once instead, either with **Connect cloud** in the header or by opening `https://your-app/?pair=<API_KEY>`. The key is stored on that device only.
+
+Without `VITE_API_URL` the app works entirely offline with no sync. Use **Backup** in the header to download a restorable `.json` plus an Excel-friendly `.csv`.
+
+Demo patients are only seeded in `npm run dev` or when the URL has `?demo`.
 
 ### Deploy Frontend
 
@@ -341,7 +345,9 @@ The UI was built for a **60+-year-old practitioner** who uses it 8 hours a day o
 | Network calls | Only when `VITE_API_URL` is set |
 | Analytics / tracking | None |
 | Login required | No |
-| Patient data leaves device | Only on explicit sync, opt-in |
+| Patient data leaves device | Only on explicit sync, opt-in (device must be paired) |
+| Deletes | Soft-deleted tombstones, so deletions sync to every device |
+| Backup | One-tap JSON + CSV export; reminder after 7 days without backup or sync |
 
 ---
 

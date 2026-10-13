@@ -67,6 +67,12 @@ const ensureCollections = async () => {
     await database.collection('sync_log').createIndex({ device_id: 1, timestamp: -1 });
     console.log('  ✓ sync_log collection created');
   }
+
+  // Sync v2 collections — createIndex is idempotent, so run it every cold start
+  for (const name of ['patients_v2', 'visits_v2']) {
+    await database.collection(name).createIndex({ uid: 1 }, { unique: true });
+    await database.collection(name).createIndex({ synced_at: 1, uid: 1 });
+  }
 };
 
 // Collections interface

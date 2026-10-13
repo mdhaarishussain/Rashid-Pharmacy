@@ -36,7 +36,8 @@ function tokenise(text: string): string[] {
 }
 
 export function buildFuse(records: SearchRecord[]) {
-  fuseInstance = new Fuse(records, {
+  // Fuse mutates the array it is given on add/remove — hand it its own copy
+  fuseInstance = new Fuse([...records], {
     keys: ['patientName', 'medicineNames', 'symptomTokens'],
     includeScore: true,
     threshold: 0.45,
@@ -49,30 +50,21 @@ export function buildFuse(records: SearchRecord[]) {
 
 export function buildIndex(visits: Visit[], patients: Patient[]) {
   const patientMap = new Map<number, string>()
-  patients.forEach((p) => patientMap.set(p.id!, p.name))
+  patients.forEach((p) => {
+    if (!p.deleted_at) patientMap.set(p.id!, p.name)
+  })
 
-  index = visits.map((v) => ({
-    visitId: v.id!,
-    patientId: v.patient_id,
-    patientName: patientMap.get(v.patient_id) ?? '',
-    date: v.date,
-    medicineNames: v.medicines_json.map((m) => m.name.toLowerCase()),
-    symptomTokens: tokenise(v.symptoms_text),
-    visitNumber: v.visit_number,
-  }))
+  index = visits
+    .filter((v) => !v.deleted_at && patientMap.has(v.patient_id))
+    .map((v) => toRecord(v, patientMap.get(v.patient_id)!))
 
   // sort descending by date so recency rank is preserved
   index.sort((a, b) => b.date - a.date)
   buildFuse(index)
 }
 
-export function removePatientFromIndex(patientId: number) {
-  index = index.filter((r) => r.patientId !== patientId)
-  buildFuse(index)
-}
-
-export function addToIndex(visit: Visit, patientName: string) {
-  const record: SearchRecord = {
+function toRecord(visit: Visit, patientName: string): SearchRecord {
+  return {
     visitId: visit.id!,
     patientId: visit.patient_id,
     patientName,
@@ -81,23 +73,41 @@ export function addToIndex(visit: Visit, patientName: string) {
     symptomTokens: tokenise(visit.symptoms_text),
     visitNumber: visit.visit_number,
   }
-  // Replace existing record if present
+}
+
+export function removePatientFromIndex(patientId: number) {
+  index = index.filter((r) => r.patientId !== patientId)
+  fuseInstance?.remove((r) => r.patientId === patientId)
+}
+
+// Incremental update — autosave calls this every few hundred ms, so avoid
+// re-tokenising the whole index (noticeable once there are tens of thousands of visits).
+export function addToIndex(visit: Visit, patientName: string) {
+  const record = toRecord(visit, patientName)
   const existingIdx = index.findIndex((r) => r.visitId === visit.id)
-  if (existingIdx >= 0) {
-    index.splice(existingIdx, 1, record)
-  } else {
-    index.unshift(record)
+  if (existingIdx >= 0) index.splice(existingIdx, 1)
+  // keep the array sorted newest-first
+  let lo = 0
+  let hi = index.length
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1
+    if (index[mid].date > record.date) lo = mid + 1
+    else hi = mid
   }
-  buildFuse(index)
+  index.splice(lo, 0, record)
+
+  if (!fuseInstance) {
+    buildFuse(index)
+    return
+  }
+  fuseInstance.remove((r) => r.visitId === record.visitId)
+  fuseInstance.add(record)
 }
 
 // ─── Scoring ──────────────────────────────────────────────────────────────────
 
-const NOW = Date.now()
-const ONE_YEAR_MS = 365 * 24 * 3600 * 1000
-
 function recencyScore(date: number): number {
-  const ageDays = (NOW - date) / (24 * 3600 * 1000)
+  const ageDays = (Date.now() - date) / (24 * 3600 * 1000)
   return Math.max(0, 1 - ageDays / 365)
 }
 
@@ -173,8 +183,3 @@ export function search(query: string, limit = 50): SearchResult[] {
 
   return scored.sort((a, b) => b.score - a.score).slice(0, limit)
 }
-
-// Keep NOW from going stale across long sessions
-setInterval(() => {
-  // rebuild fuse occasionally to refresh the NOW reference in rankings
-}, ONE_YEAR_MS)

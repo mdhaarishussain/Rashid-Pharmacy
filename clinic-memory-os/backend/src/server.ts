@@ -6,6 +6,7 @@ import { apiKeyAuth } from './middleware/auth.js';
 import patientRoutes from './routes/patients.js';
 import visitRoutes from './routes/visits.js';
 import syncRoutes from './routes/sync.js';
+import syncV2Routes from './routes/syncV2.js';
 
 dotenv.config();
 
@@ -60,6 +61,7 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
 app.use('/api/patients', apiKeyAuth, patientRoutes);
 app.use('/api/visits', apiKeyAuth, visitRoutes);
 app.use('/api/sync', apiKeyAuth, syncRoutes);
+app.use('/api/v2/sync', apiKeyAuth, syncV2Routes);
 
 // Error handler
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {

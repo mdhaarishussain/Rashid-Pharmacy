@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { db } from '../db/db'
+import { db, isLive } from '../db/db'
 import type { Patient, MedicineEntry } from '../db/db'
 import { MEDICINES, getMedicinePotencies, isDropPotency, type MedicineType } from '../data/medicines'
 import { addToIndex } from '../search/searchEngine'
@@ -327,7 +327,7 @@ export default function MigrationModal({ onClose }: Props) {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    db.patients.orderBy('name').toArray().then(setAllPatients)
+    db.patients.orderBy('name').toArray().then((ps) => setAllPatients(ps.filter(isLive)))
   }, [])
 
   useEffect(() => {

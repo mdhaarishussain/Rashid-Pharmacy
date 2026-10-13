@@ -9,7 +9,15 @@ import TimelinePanel from './components/TimelinePanel'
 import MedicineCockpit from './components/MedicineCockpit'
 import ClosurePanel from './components/ClosurePanel'
 import MigrationModal from './components/MigrationModal'
-import { fullSync, startBackgroundSync } from './services/syncService'
+import { BackupModal, BackupReminder, ConnectSyncModal, SyncStatus, needsBackupReminder } from './components/DataSafety'
+import { getLastBackup } from './services/backup'
+import {
+  consumePairingLink,
+  getLastSyncOk,
+  isSyncConfigured,
+  runSyncCycle,
+  startBackgroundSync,
+} from './services/syncService'
 
 // ─── Live clock — updates every 30 s ─────────────────────────────────────────
 
@@ -31,47 +39,6 @@ function LiveClock() {
       {now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
     </span>
   )
-}
-
-// ─── Sync status — shows when data last synced to cloud ─────────────────────
-function SyncStatus({
-  lastSyncAt,
-  isSyncing,
-  error,
-  onSyncNow,
-}: {
-  lastSyncAt: number | null
-  isSyncing: boolean
-  error: string | null
-  onSyncNow: () => void
-}) {
-  const label = isSyncing
-    ? 'Syncing…'
-    : error
-      ? 'Sync failed'
-      : lastSyncAt
-        ? `Synced ${formatSyncTime(lastSyncAt)}`
-        : 'Not synced'
-  const color = error ? 'text-red-600' : lastSyncAt ? 'text-success' : 'text-muted'
-  return (
-    <div className="flex items-center gap-2" title={error || undefined}>
-      <span className={`text-xs font-medium ${color}`}>{label}</span>
-      <button
-        onClick={onSyncNow}
-        disabled={isSyncing}
-        className="text-xs px-2 py-1 rounded bg-card hover:bg-accent/20 border border-border text-muted hover:text-accent disabled:opacity-50 transition-colors"
-      >
-        Sync now
-      </button>
-    </div>
-  )
-}
-
-function formatSyncTime(ms: number): string {
-  const sec = Math.floor((Date.now() - ms) / 1000)
-  if (sec < 60) return 'just now'
-  if (sec < 3600) return `${Math.floor(sec / 60)}m ago`
-  return `${Math.floor(sec / 3600)}h ago`
 }
 
 // ─── Tutorial modal ───────────────────────────────────────────────────────────
@@ -316,9 +283,15 @@ export default function App() {
   const [searchResetKey, setSearchResetKey] = useState(0)
   const [activeMobileTab, setActiveMobileTab] = useState<'patients' | 'medicines' | 'payment'>('medicines')
   const prevSavedAtRef = useRef<number | null>(null)
-  const [lastSyncAt, setLastSyncAt] = useState<number | null>(null)
+  const [lastSyncAt, setLastSyncAt] = useState<number | null>(() => getLastSyncOk())
   const [isSyncing, setIsSyncing] = useState(false)
   const [syncError, setSyncError] = useState<string | null>(null)
+  const [syncConnected, setSyncConnected] = useState(() => isSyncConfigured())
+  const [showConnect, setShowConnect] = useState(false)
+  const [showBackup, setShowBackup] = useState(false)
+  const [showReminder, setShowReminder] = useState(false)
+  const searchQueryRef = useRef(state.searchQuery)
+  searchQueryRef.current = state.searchQuery
 
   // ── Refresh timeline after autosave updates index ──────────────────────────
   useEffect(() => {
@@ -333,7 +306,7 @@ export default function App() {
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement
       if (target.closest('input, textarea, select, button')) return
-      if (showTutorial || showMigration) return
+      if (showTutorial || showMigration || showConnect || showBackup) return
       if (e.key === '1') { e.preventDefault(); dispatch({ type: 'SET_ACTIVE_SLOT', index: 0 }) }
       if (e.key === '2') { e.preventDefault(); dispatch({ type: 'SET_ACTIVE_SLOT', index: 1 }) }
       if (e.key === '3') { e.preventDefault(); dispatch({ type: 'SET_ACTIVE_SLOT', index: 2 }) }
@@ -362,12 +335,17 @@ export default function App() {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [dispatch, showTutorial, showMigration, state.activePatient, state.draft, state.lastVisit, state.patientVisits.length, state.slots, state.activeSlotIndex])
+  }, [dispatch, showTutorial, showMigration, showConnect, showBackup, state.activePatient, state.draft, state.lastVisit, state.patientVisits.length, state.slots, state.activeSlotIndex])
 
-  // ── Bootstrap: seed + build search index + restore draft ──────────────────
+  // ── Bootstrap: pairing link + demo seed + build search index + restore draft ──
   useEffect(() => {
     async function init() {
-      await seedDemoData()
+      if (consumePairingLink()) setSyncConnected(true)
+
+      // Demo patients only in development or when explicitly asked for (?demo)
+      if (import.meta.env.DEV || new URLSearchParams(window.location.search).has('demo')) {
+        await seedDemoData()
+      }
 
       const [visits, patients] = await Promise.all([
         db.visits.toArray(),
@@ -375,12 +353,13 @@ export default function App() {
       ])
       buildIndex(visits, patients)
       setIndexReady(true)
+      setShowReminder(patients.length > 0 && needsBackupReminder(getLastBackup(), getLastSyncOk()))
 
       // Draft recovery after refresh
       const savedDraft = loadDraftFromStorage()
       if (savedDraft) {
         const patient = await db.patients.get(savedDraft.patient_id)
-        if (patient) {
+        if (patient && !patient.deleted_at) {
           dispatch({ type: 'RESTORE_DRAFT', draft: savedDraft, patient })
         }
       }
@@ -395,7 +374,24 @@ export default function App() {
     dispatch,
   })
 
-  // ── Background sync (every 30s when online) ──────────────────────────────────
+  // ── Rebuild search index after records arrive from sync or a restore ──────
+  const refreshIndex = useCallback(async () => {
+    const [allVisits, allPatients] = await Promise.all([db.visits.toArray(), db.patients.toArray()])
+    buildIndex(allVisits, allPatients)
+    dispatch({ type: 'SET_SEARCH_RESULTS', results: search(searchQueryRef.current) })
+  }, [dispatch])
+
+  // ── Cloud sync: outbox push + incremental pull, every 30 s when online ─────
+  const handleSyncResult = useCallback(
+    (result: { pulled: number; at: number }) => {
+      setLastSyncAt(result.at)
+      setSyncError(null)
+      setShowReminder(false)
+      if (result.pulled > 0) refreshIndex()
+    },
+    [refreshIndex]
+  )
+
   const runSync = useCallback(async () => {
     if (!navigator.onLine) {
       setSyncError('Offline')
@@ -404,65 +400,18 @@ export default function App() {
     setIsSyncing(true)
     setSyncError(null)
     try {
-      const [patients, visits] = await Promise.all([
-        db.patients.toArray(),
-        db.visits.toArray(),
-      ])
-      const result = await fullSync(patients, visits)
-      setLastSyncAt(result.pulled.timestamp)
-      setSyncError(null)
-      // Write pulled records into local IndexedDB, then rebuild index
-      if ((result.pulled.patients?.length || 0) + (result.pulled.visits?.length || 0) > 0) {
-        if (result.pulled.patients?.length) {
-          await db.patients.bulkPut(result.pulled.patients)
-        }
-        if (result.pulled.visits?.length) {
-          await db.visits.bulkPut(result.pulled.visits)
-        }
-        const [allVisits, allPatients] = await Promise.all([
-          db.visits.toArray(),
-          db.patients.toArray(),
-        ])
-        buildIndex(allVisits, allPatients)
-        dispatch({ type: 'SET_SEARCH_RESULTS', results: search(state.searchQuery) })
-      }
+      handleSyncResult(await runSyncCycle())
     } catch (err) {
       setSyncError(err instanceof Error ? err.message : 'Sync failed')
     } finally {
       setIsSyncing(false)
     }
-  }, [dispatch, state.searchQuery])
+  }, [handleSyncResult])
 
   useEffect(() => {
-    if (!indexReady) return
-    const stop = startBackgroundSync(
-      async () => ({
-        patients: await db.patients.toArray(),
-        visits: await db.visits.toArray(),
-      }),
-      async (result) => {
-        // Write pulled records into local IndexedDB
-        if (result.pulled.patients?.length) {
-          await db.patients.bulkPut(result.pulled.patients)
-        }
-        if (result.pulled.visits?.length) {
-          await db.visits.bulkPut(result.pulled.visits)
-        }
-        setLastSyncAt(result.pulled.timestamp)
-        setSyncError(null)
-        // Rebuild index if new data arrived
-        if ((result.pulled.patients?.length || 0) + (result.pulled.visits?.length || 0) > 0) {
-          const [allVisits, allPatients] = await Promise.all([
-            db.visits.toArray(),
-            db.patients.toArray(),
-          ])
-          buildIndex(allVisits, allPatients)
-          dispatch({ type: 'SET_SEARCH_RESULTS', results: search('') })
-        }
-      }
-    )
-    return stop
-  }, [indexReady])
+    if (!indexReady || !syncConnected) return
+    return startBackgroundSync(handleSyncResult, (err) => setSyncError(err.message))
+  }, [indexReady, syncConnected, handleSyncResult])
 
   // ── Visit count + last visit date ──────────────────────────────────────────
   const patientVisitCount = state.patientVisits.length
@@ -486,6 +435,16 @@ export default function App() {
     <div className="flex flex-col h-screen overflow-hidden bg-surface text-primary">
       {showTutorial && <TutorialModal onClose={() => setShowTutorial(false)} />}
       {showMigration && <MigrationModal onClose={() => setShowMigration(false)} />}
+      {showConnect && (
+        <ConnectSyncModal
+          onClose={() => setShowConnect(false)}
+          onChanged={() => {
+            setSyncConnected(isSyncConfigured())
+            setSyncError(null)
+          }}
+        />
+      )}
+      {showBackup && <BackupModal onClose={() => setShowBackup(false)} onRestored={refreshIndex} />}
 
       {/* ── Top header bar ─────────────────────────────────────────────────── */}
       <div className="shrink-0 flex items-center justify-between px-5 py-2.5 bg-panel border-b-2 border-border shadow-sm">
@@ -513,11 +472,23 @@ export default function App() {
         <div className="flex items-center gap-3">
           <LiveClock />
           <SyncStatus
+            connected={syncConnected}
             lastSyncAt={lastSyncAt}
             isSyncing={isSyncing}
             error={syncError}
             onSyncNow={runSync}
+            onConnect={() => setShowConnect(true)}
           />
+          <button
+            onClick={() => setShowBackup(true)}
+            className="flex items-center gap-1.5 bg-card hover:bg-accent/20 hover:text-accent border border-border hover:border-accent/40 text-muted px-3 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm"
+            title="Download or restore a backup of all records"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            <span className="hidden sm:inline">Backup</span>
+          </button>
           <button
             id="tutorial-import-history"
             onClick={() => setShowMigration(true)}
@@ -541,6 +512,13 @@ export default function App() {
           </button>
         </div>
       </div>
+
+      {showReminder && (
+        <BackupReminder
+          onBackup={() => setShowBackup(true)}
+          onDismiss={() => setShowReminder(false)}
+        />
+      )}
 
       {/* ── Three panel layout ──────────────────────────────────────────────── */}
       <div className="flex flex-1 overflow-hidden flex-col lg:flex-row">

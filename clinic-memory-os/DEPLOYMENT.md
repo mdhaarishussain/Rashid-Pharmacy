@@ -109,9 +109,10 @@ Now that you have the actual backend URL, set the frontend environment variables
 
 > ⚠️ **Never commit `.env.production` to git** — it contains secrets. Set these in Vercel Dashboard instead.
 
-When configuring the frontend project in Step 4, add these environment variables in Vercel:
+When configuring the frontend project in Step 4, add this environment variable in Vercel:
 - `VITE_API_URL` = `https://rashid-pharmacy-api.vercel.app/api`
-- `VITE_API_KEY` = Same value as `API_KEY` in your backend (must match exactly)
+
+> 🔐 **Do not set `VITE_API_KEY`.** Every `VITE_*` value is compiled into the public JavaScript, so anyone could read it. Each device is paired with the key once instead (see Step 6).
 
 > Replace `rashid-pharmacy-api` with your actual Vercel backend project name if different.
 
@@ -140,7 +141,6 @@ When configuring the frontend project in Step 4, add these environment variables
 | Name | Value |
 |---|---|
 | `VITE_API_URL` | `https://rashid-pharmacy-api.vercel.app/api` |
-| `VITE_API_KEY` | Same API key as backend (must match exactly) |
 
 ### 4d. Deploy
 
@@ -191,9 +191,35 @@ Expected: `[]` (empty array, or list of patients)
 Visit `https://rashid-pharmacy.vercel.app` — app should load, show the clinic UI.
 
 ### 5. Multi-device sync test
-1. Open app on laptop → add a new patient
-2. Wait 30 seconds (background sync runs every 30s)
-3. Open app on phone → the patient should appear
+1. Pair both devices (Step 6)
+2. Open app on laptop → add a new patient
+3. Wait 30 seconds (background sync runs every 30s)
+4. Open app on phone → the patient should appear
+
+---
+
+## Step 6 — Pair each device
+
+Do this once on every phone, tablet, or laptop that should sync:
+
+- **Option A:** open `https://rashid-pharmacy.vercel.app/?pair=<API_KEY>`. The app stores the key and removes it from the address bar.
+- **Option B:** open the app, tap **Connect cloud** in the header, and paste the key.
+
+The header then shows "Synced just now". Unpaired devices keep working fully offline.
+
+---
+
+## ⬆️ Upgrading from sync v1 (before October 2026)
+
+The old sync sent every record on every cycle and stopped working at about 5,000 visits. It also matched records by each device's local number, so two devices could overwrite each other, and the API key was readable inside the website code. Sync v2 fixes all three. Upgrade in this order:
+
+1. **Deploy the backend first.** It adds `/api/v2/sync` and new `patients_v2` / `visits_v2` collections. The old `/api/sync` and the old collections are left untouched as an archive.
+2. **Rotate the key.** The old `API_KEY` was public, so generate a new one (`openssl rand -hex 32`) and set it on the backend. Redeploy the backend.
+3. **Remove `VITE_API_KEY`** from the frontend project's environment variables, then deploy the frontend.
+4. **On each device, open the app once while online.** The local database upgrades itself (no data is lost), then pair the device (Step 6). Its full history uploads in batches of 200.
+5. **Take a backup** from the header on the main clinic device as a safety copy.
+
+Every device that holds records should be opened and paired once, so anything it has that never reached the cloud gets uploaded.
 
 ---
 
@@ -205,8 +231,10 @@ Laptop      ←──→  Backend API (Vercel)  ←──→  (cloud database)
 Tablet      ←──────────────────────────────→
 ```
 
-- **Every 30 seconds** when online: frontend pushes changes, then pulls server changes
-- **Conflict resolution**: last-write-wins (whoever saved last keeps their data)
+- **Every 30 seconds** when online (and on reconnect): the device uploads only the records changed since the last sync, in batches of 200, then downloads what other devices changed. A server-side cursor means nothing is fetched twice.
+- **Identity**: every record has a permanent `uid`, so devices never collide
+- **Conflict resolution**: last-write-wins on the time the record was *edited* (device clock), not when it reached the server
+- **Deletes**: synced as tombstones, so a deleted patient does not reappear
 - **Offline**: app works fully from local IndexedDB, syncs when back online
 - **Device ID**: auto-generated per browser, stored in localStorage
 
@@ -235,9 +263,9 @@ Vercel auto-deploys both projects on every push to `main`. No manual steps neede
 - Go to Vercel → backend project → **Functions** tab → click the function → view logs
 - Most common cause: `MONGODB_URI` env variable missing or wrong
 
-### "API key is invalid" (403)
-- `VITE_API_KEY` in frontend does not match `API_KEY` in backend
-- Both must match exactly (use the same value in backend and frontend)
+### "Sync key rejected — reconnect this device" (401/403)
+- The key this device was paired with does not match `API_KEY` on the backend (for example, after rotating the key)
+- Tap the sync status in the header and paste the current key
 
 ### Patients not syncing between devices
 1. Open browser DevTools → **Console** tab
