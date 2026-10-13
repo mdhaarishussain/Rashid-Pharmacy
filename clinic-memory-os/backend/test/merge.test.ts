@@ -17,6 +17,54 @@ describe('sanitizePatient', () => {
   })
 })
 
+describe('sanitizePatient identity fields', () => {
+  const base = { uid: 'u1', name: 'A', updated_at: 5 }
+
+  it('defaults missing fields to null so old clients still sync', () => {
+    expect(sanitizePatient(base)).toMatchObject({ phone: null, sex: null, birth_year: null })
+  })
+
+  it('accepts a valid phone, sex and birth year', () => {
+    const p = sanitizePatient({ ...base, phone: ' +91 98765-43210 ', sex: 'F', birth_year: 1990 })!
+    expect(p).toMatchObject({ phone: '+91 98765-43210', sex: 'F', birth_year: 1990 })
+  })
+
+  it('rejects phones with letters or more than 20 characters', () => {
+    expect(sanitizePatient({ ...base, phone: '98765 abc' })!.phone).toBeNull()
+    expect(sanitizePatient({ ...base, phone: '<b>1</b>' })!.phone).toBeNull()
+    expect(sanitizePatient({ ...base, phone: '1'.repeat(21) })!.phone).toBeNull()
+    expect(sanitizePatient({ ...base, phone: '1'.repeat(20) })!.phone).toHaveLength(20)
+    expect(sanitizePatient({ ...base, phone: '   ' })!.phone).toBeNull()
+    expect(sanitizePatient({ ...base, phone: 9876543210 })!.phone).toBeNull()
+  })
+
+  it('only allows M, F or O for sex', () => {
+    for (const sex of ['M', 'F', 'O']) expect(sanitizePatient({ ...base, sex })!.sex).toBe(sex)
+    for (const sex of ['m', 'X', '', 1, null]) expect(sanitizePatient({ ...base, sex })!.sex).toBeNull()
+  })
+
+  it('keeps birth_year only as an integer from 1900 to the current year', () => {
+    const year = new Date().getFullYear()
+    expect(sanitizePatient({ ...base, birth_year: 1900 })!.birth_year).toBe(1900)
+    expect(sanitizePatient({ ...base, birth_year: year })!.birth_year).toBe(year)
+    for (const birth_year of [1899, year + 1, 1990.5, '1990', NaN, null]) {
+      expect(sanitizePatient({ ...base, birth_year })!.birth_year).toBeNull()
+    }
+  })
+})
+
+describe('sanitizeVisit follow_up_date', () => {
+  const base = { uid: 'v1', patient_uid: 'p1', updated_at: 5 }
+
+  it('keeps a positive number and nulls everything else', () => {
+    expect(sanitizeVisit({ ...base, follow_up_date: 1_700_000_000_000 })!.follow_up_date).toBe(1_700_000_000_000)
+    expect(sanitizeVisit(base)!.follow_up_date).toBeNull()
+    for (const follow_up_date of [0, -5, '123', NaN, Infinity, null]) {
+      expect(sanitizeVisit({ ...base, follow_up_date })!.follow_up_date).toBeNull()
+    }
+  })
+})
+
 describe('sanitizeVisit', () => {
   it('requires a patient_uid and recomputes amount_due', () => {
     expect(sanitizeVisit({ uid: 'v1', updated_at: 1 })).toBeNull()

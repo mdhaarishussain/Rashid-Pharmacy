@@ -1,4 +1,4 @@
-import type { MedicineEntry, Patient, Visit } from '../db/db'
+import type { MedicineEntry, Patient, Sex, Visit } from '../db/db'
 
 // ─── Wire format (sync v2 + backup files) ────────────────────────────────────
 // Records are identified by `uid`; local numeric ids never leave the device.
@@ -10,6 +10,11 @@ export interface WirePatient {
   created_at: number
   updated_at: number
   deleted_at: number | null
+  // Identity fields. Optional on the wire: older backups and peers omit them,
+  // which means "unknown" (an explicit null means "cleared").
+  phone?: string | null
+  sex?: Sex | null
+  birth_year?: number | null
 }
 
 export interface WireVisit {
@@ -24,6 +29,7 @@ export interface WireVisit {
   visit_number: number
   updated_at: number
   deleted_at: number | null
+  follow_up_date?: number | null
 }
 
 export function patientToWire(p: Patient): WirePatient {
@@ -34,6 +40,9 @@ export function patientToWire(p: Patient): WirePatient {
     created_at: p.created_at,
     updated_at: p.updated_at ?? p.created_at,
     deleted_at: p.deleted_at ?? null,
+    phone: p.phone ?? null,
+    sex: p.sex ?? null,
+    birth_year: p.birth_year ?? null,
   }
 }
 
@@ -50,12 +59,27 @@ export function visitToWire(v: Visit, patientUid: string): WireVisit {
     visit_number: v.visit_number,
     updated_at: v.updated_at ?? v.date,
     deleted_at: v.deleted_at ?? null,
+    follow_up_date: v.follow_up_date ?? null,
   }
+}
+
+/**
+ * Resolve an optional wire field against the local row: absent (undefined)
+ * keeps what we have, null clears it, a value replaces it.
+ */
+function resolveOptional<T>(remote: T | null | undefined, local: T | undefined): T | undefined {
+  if (remote === undefined) return local
+  return remote === null ? undefined : remote
 }
 
 /** Last-write-wins: a remote record replaces the local one only if strictly newer. */
 export function remoteWins(local: { updated_at?: number } | undefined, remote: { updated_at: number }): boolean {
   return !local || (local.updated_at ?? 0) < remote.updated_at
+}
+
+/** Drop undefined entries so cleared fields are omitted from the stored row. */
+function optionalFields<T extends Record<string, unknown>>(fields: T): Partial<T> {
+  return Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined)) as Partial<T>
 }
 
 export interface PlannedWrites<T> {
@@ -80,6 +104,11 @@ export function planPatientWrites(
       name: r.name,
       quick_note: r.quick_note,
       created_at: r.created_at,
+      ...optionalFields({
+        phone: resolveOptional(r.phone, local?.phone),
+        sex: resolveOptional(r.sex, local?.sex),
+        birth_year: resolveOptional(r.birth_year, local?.birth_year),
+      }),
       updated_at: r.updated_at,
       deleted_at: r.deleted_at,
       dirty: markDirty ? 1 : 0,
@@ -117,6 +146,7 @@ export function planVisitWrites(
       amount_paid: r.amount_paid,
       amount_due: r.amount_due,
       visit_number: r.visit_number,
+      follow_up_date: resolveOptional(r.follow_up_date, local?.follow_up_date) ?? null,
       updated_at: r.updated_at,
       deleted_at: r.deleted_at,
       dirty: markDirty ? 1 : 0,

@@ -34,6 +34,7 @@ export type AppAction =
   | { type: 'LOAD_PATIENT'; patient: Patient; visits: Visit[] }
   | { type: 'CLEAR_PATIENT' }
   | { type: 'NEW_PATIENT'; patient: Patient }
+  | { type: 'PATIENT_UPDATED'; patient: Patient }
   | { type: 'INIT_DRAFT'; visitNumber: number }
   | { type: 'REPEAT_AND_MODIFY' }
   | { type: 'SET_SLOT_MEDICINE'; slotIndex: number; medicine: MedicineEntry }
@@ -43,6 +44,7 @@ export type AppAction =
   | { type: 'REMOVE_SLOT'; slotIndex: number }
   | { type: 'SET_ACTIVE_SLOT'; index: number }
   | { type: 'SET_SYMPTOMS'; text: string }
+  | { type: 'SET_FOLLOW_UP'; date: number | null }
   | { type: 'UPDATE_PAYMENT'; field: 'fee_total' | 'amount_paid'; value: number }
   | { type: 'SET_SEARCH_QUERY'; query: string }
   | { type: 'SET_SEARCH_RESULTS'; results: SearchResult[] }
@@ -134,6 +136,12 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       }
     }
 
+    // Identity edit: refresh the patient card without touching the visit draft
+    case 'PATIENT_UPDATED': {
+      if (state.activePatient?.id !== action.patient.id) return state
+      return { ...state, activePatient: action.patient }
+    }
+
     case 'INIT_DRAFT': {
       if (!state.activePatient) return state
       const draft: VisitDraft = {
@@ -145,6 +153,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         amount_paid: 0,
         amount_due: 0,
         visit_number: action.visitNumber,
+        follow_up_date: null,
         dirty: true,
       }
       return { ...state, draft }
@@ -162,6 +171,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         amount_paid: 0,
         amount_due: 0,
         visit_number: state.patientVisits.length + 1,
+        follow_up_date: null, // a repeat visit starts with no next-visit date
         dirty: true,
       }
       return {
@@ -241,6 +251,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ? { ...state.draft, symptoms_text: action.text, dirty: true }
         : null
       return { ...state, draft }
+    }
+
+    case 'SET_FOLLOW_UP': {
+      if (!state.draft) return state
+      return { ...state, draft: { ...state.draft, follow_up_date: action.date, dirty: true } }
     }
 
     case 'UPDATE_PAYMENT': {

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { db } from './db/db'
 import { seedDemoData } from './db/seed'
-import { buildIndex, search } from './search/searchEngine'
+import { buildIndex, search, updatePatientInIndex } from './search/searchEngine'
+import type { Patient } from './db/db'
 import { useAppState } from './state/useAppState'
 import { useAutosave } from './hooks/useAutosave'
 import { loadDraftFromStorage } from './hooks/useAutosave'
@@ -290,6 +291,8 @@ export default function App() {
   const [showConnect, setShowConnect] = useState(false)
   const [showBackup, setShowBackup] = useState(false)
   const [showReminder, setShowReminder] = useState(false)
+  // Bumped when records change outside autosave (sync, restore, edits, deletes) so the due strip refreshes
+  const [dataVersion, setDataVersion] = useState(0)
   const searchQueryRef = useRef(state.searchQuery)
   searchQueryRef.current = state.searchQuery
 
@@ -371,6 +374,8 @@ export default function App() {
   useAutosave({
     draft: state.draft,
     patientName: state.activePatient?.name ?? '',
+    patientPhone: state.activePatient?.phone,
+    patientBirthYear: state.activePatient?.birth_year,
     dispatch,
   })
 
@@ -379,6 +384,7 @@ export default function App() {
     const [allVisits, allPatients] = await Promise.all([db.visits.toArray(), db.patients.toArray()])
     buildIndex(allVisits, allPatients)
     dispatch({ type: 'SET_SEARCH_RESULTS', results: search(searchQueryRef.current) })
+    setDataVersion((v) => v + 1)
   }, [dispatch])
 
   // ── Cloud sync: outbox push + incremental pull, every 30 s when online ─────
@@ -421,7 +427,19 @@ export default function App() {
   const handlePatientDeleted = useCallback(() => {
     const results = search('')
     dispatch({ type: 'SET_SEARCH_RESULTS', results })
+    setDataVersion((v) => v + 1)
   }, [dispatch])
+
+  const handlePatientEdited = useCallback(
+    (patient: Patient) => {
+      updatePatientInIndex(patient)
+      dispatch({ type: 'SET_SEARCH_RESULTS', results: search(searchQueryRef.current) })
+      setDataVersion((v) => v + 1)
+    },
+    [dispatch]
+  )
+
+  const dueRefreshKey = `${state.savedAt ?? 0}-${dataVersion}`
 
   if (!indexReady) {
     return (
@@ -553,6 +571,7 @@ export default function App() {
               dispatch={dispatch}
               activePatientId={state.activePatient?.id ?? null}
               searchResetKey={searchResetKey}
+              dueRefreshKey={dueRefreshKey}
             />
           </div>
         )}
@@ -565,6 +584,7 @@ export default function App() {
               dispatch={dispatch}
               activePatientId={state.activePatient?.id ?? null}
               searchResetKey={searchResetKey}
+              dueRefreshKey={dueRefreshKey}
             />
           </div>
         )}
@@ -592,6 +612,7 @@ export default function App() {
               savedAt={state.savedAt}
               totalOutstanding={totalOutstanding}
               onPatientDeleted={handlePatientDeleted}
+              onPatientEdited={handlePatientEdited}
               dispatch={dispatch}
             />
           </div>
@@ -607,6 +628,7 @@ export default function App() {
               savedAt={state.savedAt}
               totalOutstanding={totalOutstanding}
               onPatientDeleted={handlePatientDeleted}
+              onPatientEdited={handlePatientEdited}
               dispatch={dispatch}
             />
           </div>

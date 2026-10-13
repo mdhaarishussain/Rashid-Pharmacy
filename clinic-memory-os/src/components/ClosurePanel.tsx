@@ -1,20 +1,25 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import type { AppAction } from '../state/useAppState'
-import type { VisitDraft } from '../db/db'
+import type { Patient, VisitDraft } from '../db/db'
 import { deletePatient } from '../db/db'
 import { removePatientFromIndex } from '../search/searchEngine'
+import { addDaysToFollowUp, addMonthsToFollowUp, followUpFromInputValue, followUpToInputValue } from '../utils/followUp'
+import { identityDetail } from '../utils/identity'
 import DuesModal from './DuesModal'
+import PatientEditForm from './PatientEditForm'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Props {
   draft: VisitDraft | null
-  activePatient: { id?: number; name: string; quick_note: string } | null
+  activePatient: Patient | null
   patientVisitCount: number
   lastVisitDate: number | null
   savedAt: number | null
   totalOutstanding: number
   onPatientDeleted: () => void
+  /** Called after name / phone / age / sex were saved, so the search index and lists can refresh. */
+  onPatientEdited?: (patient: Patient) => void
   dispatch: React.Dispatch<AppAction>
 }
 
@@ -105,6 +110,77 @@ function NumericInput({
   )
 }
 
+// ─── NextVisit ────────────────────────────────────────────────────────────────
+
+const FOLLOW_UP_CHIPS: Array<{ label: string; ariaLabel: string; compute: () => number }> = [
+  { label: '+3d', ariaLabel: 'Next visit in 3 days', compute: () => addDaysToFollowUp(3) },
+  { label: '+7d', ariaLabel: 'Next visit in 7 days', compute: () => addDaysToFollowUp(7) },
+  { label: '+15d', ariaLabel: 'Next visit in 15 days', compute: () => addDaysToFollowUp(15) },
+  { label: '+1 month', ariaLabel: 'Next visit in 1 month', compute: () => addMonthsToFollowUp(1) },
+]
+
+function NextVisit({
+  value,
+  enabled,
+  dispatch,
+}: {
+  value: number | null | undefined
+  enabled: boolean
+  dispatch: React.Dispatch<AppAction>
+}) {
+  const set = (date: number | null) => dispatch({ type: 'SET_FOLLOW_UP', date })
+  const chipClass =
+    'min-h-[44px] px-3 rounded-lg border text-base font-semibold transition-colors shadow-sm disabled:opacity-40'
+  return (
+    <div className="space-y-2" role="group" aria-label="Next visit">
+      <div className="flex items-baseline justify-between">
+        <span className="text-sm font-bold text-primary">Next visit</span>
+        <span className="text-sm text-muted" aria-live="polite">
+          {value ? formatDate(value) : 'Not set'}
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {FOLLOW_UP_CHIPS.map((c) => {
+          const selected = !!value && value === c.compute()
+          return (
+            <button
+              key={c.label}
+              type="button"
+              disabled={!enabled}
+              aria-label={c.ariaLabel}
+              aria-pressed={selected}
+              onClick={() => set(c.compute())}
+              className={`${chipClass} ${
+                selected ? 'bg-accent text-panel border-accent' : 'bg-card text-primary border-border hover:border-accent'
+              }`}
+            >
+              {c.label}
+            </button>
+          )
+        })}
+        <button
+          type="button"
+          disabled={!enabled || !value}
+          aria-label="Clear next visit date"
+          onClick={() => set(null)}
+          className={`${chipClass} bg-panel text-muted border-border hover:text-danger hover:border-danger`}
+        >
+          Clear
+        </button>
+      </div>
+      <input
+        type="date"
+        aria-label="Next visit date"
+        disabled={!enabled}
+        value={followUpToInputValue(value)}
+        min={followUpToInputValue(Date.now())}
+        onChange={(e) => set(followUpFromInputValue(e.target.value))}
+        className="w-full bg-surface border border-border rounded-lg px-3 py-2.5 min-h-[44px] text-base text-primary focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors shadow-sm disabled:opacity-40"
+      />
+    </div>
+  )
+}
+
 // ─── ClosurePanel ─────────────────────────────────────────────────────────────
 
 export default function ClosurePanel({
@@ -115,9 +191,11 @@ export default function ClosurePanel({
   savedAt,
   totalOutstanding,
   onPatientDeleted,
+  onPatientEdited,
   dispatch,
 }: Props) {
   const [showDues, setShowDues] = useState(false)
+  const [editing, setEditing] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const handleFeeChange = useCallback(
@@ -150,6 +228,18 @@ export default function ClosurePanel({
     setDeleting(false)
     setShowDeleteConfirm(false)
   }, [activePatient, dispatch, onPatientDeleted])
+
+  // Leave edit mode whenever a different patient is loaded
+  useEffect(() => setEditing(false), [activePatient?.id])
+
+  const handlePatientSaved = useCallback(
+    (patient: Patient) => {
+      dispatch({ type: 'PATIENT_UPDATED', patient })
+      onPatientEdited?.(patient)
+      setEditing(false)
+    },
+    [dispatch, onPatientEdited]
+  )
 
   const handleSymptomsChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) =>
@@ -231,23 +321,46 @@ export default function ClosurePanel({
         {/* Patient meta */}
         {activePatient ? (
           <div className="bg-surface border border-border rounded-xl p-4 space-y-2 shadow-sm">
+            {editing ? (
+              <PatientEditForm
+                key={activePatient.id}
+                patient={activePatient}
+                onSaved={handlePatientSaved}
+                onCancel={() => setEditing(false)}
+              />
+            ) : (
             <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0">
                 <div className="text-lg font-bold text-primary">{activePatient.name}</div>
+                {identityDetail(activePatient) && (
+                  <div className="text-sm font-medium text-primary/80 tabular-nums">{identityDetail(activePatient)}</div>
+                )}
                 {activePatient.quick_note && (
                   <div className="text-sm text-muted italic">{activePatient.quick_note}</div>
                 )}
               </div>
               <button
+                onClick={() => setEditing(true)}
+                className="ml-2 shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center text-muted hover:text-accent hover:bg-accent/10 rounded-lg transition-colors"
+                title="Edit patient details"
+                aria-label="Edit patient details"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+              <button
                 onClick={() => setShowDeleteConfirm(true)}
-                className="ml-2 shrink-0 p-1.5 text-muted hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
+                className="shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center text-muted hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
                 title="Delete patient"
+                aria-label="Delete patient"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
               </button>
             </div>
+            )}
             <div className="grid grid-cols-2 gap-2 pt-1">
               <div className="bg-panel border border-border rounded-lg p-3 text-center shadow-sm">
                 <div className="text-2xl font-bold text-primary">{patientVisitCount}</div>
@@ -318,6 +431,9 @@ export default function ClosurePanel({
             className="w-full bg-surface border border-border rounded-lg px-3 py-2.5 text-base text-primary placeholder-muted resize-none focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors shadow-sm disabled:opacity-40"
           />
         </div>
+
+        {/* Next visit */}
+        <NextVisit value={draft?.follow_up_date} enabled={!!draft} dispatch={dispatch} />
 
         {/* Payment */}
         <div className={`space-y-3 ${!draft ? 'opacity-40 pointer-events-none' : ''}`}>

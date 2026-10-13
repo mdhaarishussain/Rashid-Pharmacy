@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../db/db'
 import { applyRemote } from './applyRemote'
-import { remoteWins, type WirePatient, type WireVisit } from './protocol'
+import { patientToWire, remoteWins, visitToWire, type WirePatient, type WireVisit } from './protocol'
 import { runSyncCycle, setSyncKey } from '../services/syncService'
 // The fake server uses the backend's real merge rules
-import { cursorFilter, pickWinners } from '../../backend/src/sync/merge'
+import { cursorFilter, pickWinners, sanitizePatient, sanitizeVisit } from '../../backend/src/sync/merge'
 
 const wp = (uid: string, updated_at: number, extra: Partial<WirePatient> = {}): WirePatient => ({
   uid, name: uid, quick_note: '', created_at: 1, updated_at, deleted_at: null, ...extra,
@@ -61,6 +61,59 @@ describe('applyRemote', () => {
   it('queues restored rows for upload when markDirty is set', async () => {
     await applyRemote([wp('p1', 10)], [], { markDirty: true })
     expect((await db.patients.where('uid').equals('p1').first())!.dirty).toBe(1)
+  })
+})
+
+describe('identity and follow-up fields on the wire', () => {
+  it('round-trips phone / sex / birth year / follow-up date through wire, applyRemote and the server sanitizers', async () => {
+    const pid = await db.patients.add({
+      name: 'Rahul', quick_note: '', created_at: 1, phone: '98765 43210', sex: 'M', birth_year: 1990,
+    }) as number
+    await db.visits.add({
+      patient_id: pid, date: 5, symptoms_text: '', medicines_json: [], fee_total: 0, amount_paid: 0,
+      amount_due: 0, visit_number: 1, follow_up_date: 123456,
+    })
+    const p = (await db.patients.get(pid))!
+    const v = (await db.visits.toArray())[0]
+    const wp1 = patientToWire(p)
+    const wv1 = visitToWire(v, p.uid!)
+    expect(wp1).toMatchObject({ phone: '98765 43210', sex: 'M', birth_year: 1990 })
+    expect(wv1.follow_up_date).toBe(123456)
+    // the server keeps exactly what the client sent
+    expect(sanitizePatient(wp1)).toEqual(wp1)
+    expect(sanitizeVisit(wv1)).toEqual(wv1)
+
+    await resetDevice()
+    await applyRemote([wp1], [wv1])
+    const p2 = (await db.patients.where('uid').equals(wp1.uid).first())!
+    const v2 = (await db.visits.where('uid').equals(wv1.uid).first())!
+    expect(p2).toMatchObject({ phone: '98765 43210', sex: 'M', birth_year: 1990 })
+    expect(v2.follow_up_date).toBe(123456)
+  })
+
+  it('treats records from older peers (fields absent) as unknown and keeps local values', async () => {
+    await applyRemote([wp('p1', 10, { phone: '98765 43210', birth_year: 1990 })], [wv('v1', 'p1', 10, { follow_up_date: 777 })])
+    // older peer edits the name; it knows nothing about the new fields
+    await applyRemote([wp('p1', 20, { name: 'Renamed' })], [wv('v1', 'p1', 20)])
+    const p = (await db.patients.where('uid').equals('p1').first())!
+    const v = (await db.visits.where('uid').equals('v1').first())!
+    expect(p).toMatchObject({ name: 'Renamed', phone: '98765 43210', birth_year: 1990 })
+    expect(v.follow_up_date).toBe(777)
+  })
+
+  it('an explicit null clears the field', async () => {
+    await applyRemote([wp('p1', 10, { phone: '98765 43210', sex: 'F' })], [wv('v1', 'p1', 10, { follow_up_date: 777 })])
+    await applyRemote([wp('p1', 20, { phone: null, sex: null })], [wv('v1', 'p1', 20, { follow_up_date: null })])
+    const p = (await db.patients.where('uid').equals('p1').first())!
+    const v = (await db.visits.where('uid').equals('v1').first())!
+    expect(p.phone).toBeUndefined()
+    expect(p.sex).toBeUndefined()
+    expect(v.follow_up_date).toBeNull()
+  })
+
+  it('old records without the fields still sanitize on the server', () => {
+    expect(sanitizePatient({ uid: 'u', name: 'A', updated_at: 1 })).toMatchObject({ phone: null, sex: null, birth_year: null })
+    expect(sanitizeVisit({ uid: 'v', patient_uid: 'u', updated_at: 1 })).toMatchObject({ follow_up_date: null })
   })
 })
 
