@@ -1,0 +1,52 @@
+/* Prescription slip: on-screen preview + print rules.
+   The dialog is portalled to <body>, so printing hides #root and the dialog chrome
+   and leaves only #rx-slip. @page size is injected by the component (A5 vs 80mm). */
+
+.rx-slip {
+  background: #fff;
+  color: #000;
+  font-family: 'Noto Sans Devanagari', 'Nirmala UI', 'Segoe UI', system-ui, sans-serif;
+  line-height: 1.45;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+.rx-slip[lang='ur'] {
+  font-family: 'Noto Nastaliq Urdu', 'Noto Naskh Arabic', 'Jameel Noori Nastaleeq', 'Segoe UI', Tahoma, system-ui, sans-serif;
+  line-height: 1.9;
+}
+.rx-slip.rx-a5 { width: 148mm; max-width: 100%; padding: 10mm 9mm; font-size: 14pt; }
+.rx-slip.rx-thermal { width: 72mm; max-width: 100%; padding: 2mm 1mm; font-size: 10.5pt; }
+
+.rx-head { text-align: center; padding-bottom: 6px; border-bottom: 2px solid #000; }
+.rx-clinic { font-size: 1.35em; font-weight: 800; }
+.rx-sub { font-size: 0.85em; }
+.rx-meta { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid #000; font-size: 0.95em; }
+.rx-meta b { font-weight: 700; }
+.rx-rx { font-size: 1.6em; font-weight: 800; font-family: Georgia, 'Times New Roman', serif; margin: 6px 0 2px; }
+.rx-list { list-style: none; margin: 0; padding: 0; }
+.rx-item { display: flex; gap: 8px; padding: 6px 0; border-bottom: 1px dotted #555; break-inside: avoid; }
+.rx-num { font-weight: 700; min-width: 1.5em; }
+.rx-name { font-weight: 700; }
+.rx-instr { font-size: 0.95em; }
+.rx-next { margin-top: 8px; padding: 6px 8px; border: 1.5px solid #000; font-weight: 700; }
+.rx-foot { margin-top: 10px; text-align: center; font-size: 0.85em; }
+.rx-slip.rx-thermal .rx-rx { display: none; }
+
+@media print {
+  html, body { height: auto !important; overflow: visible !important; background: #fff !important; }
+  #root, .rx-no-print { display: none !important; }
+  #rx-overlay { position: static !important; display: block !important; background: none !important; }
+  #rx-panel, #rx-scroll {
+    position: static !important; display: block !important; width: auto !important;
+    max-width: none !important; max-height: none !important; overflow: visible !important;
+    margin: 0 !important; padding: 0 !important; border: 0 !important; box-shadow: none !important;
+    background: none !important;
+  }
+  .rx-frame-outer, .rx-frame {
+    display: block !important; width: auto !important; max-width: none !important; overflow: visible !important;
+    margin: 0 !important; border: 0 !important; box-shadow: none !important; background: none !important;
+  }
+  .rx-slip { margin: 0 !important; border: 0 !important; box-shadow: none !important; max-width: none !important; }
+  .rx-slip.rx-a5 { width: 100%; padding: 0; }
+  .rx-slip.rx-thermal { width: 100%; padding: 0; }
+}

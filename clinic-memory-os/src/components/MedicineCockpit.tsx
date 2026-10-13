@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { VariableSizeList, type ListChildComponentProps } from 'react-window'
 import type { MedicineSlot, AppAction } from '../state/useAppState'
 import type { Visit, MedicineEntry } from '../db/db'
+import PrescriptionSlip from './PrescriptionSlip'
 import { SHELF_ROWS, type ShelfRow, getShortCode, isDropPotency, getMedicinePotencies } from '../data/medicines'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -54,6 +55,17 @@ function MedicineSlots({
     dispatch({ type: 'REPEAT_AND_MODIFY' })
   }, [dispatch])
 
+  // Rx slip: current draft's medicines, or the last visit's when there is no draft
+  const [slipOpen, setSlipOpen] = useState(false)
+  const slipMeds: MedicineEntry[] = draft
+    ? slots.flatMap((s) => (s.medicine ? [s.medicine] : []))
+    : lastVisit?.medicines_json ?? []
+  const slipDate = !draft && lastVisit ? lastVisit.date : Date.now()
+  // TODO(merge): `phone` (Patient) and `follow_up_date` (Visit/VisitDraft) are being added by another
+  // change; read them defensively until it lands, then drop the casts.
+  const slipPhone = (activePatient as { phone?: string } | null)?.phone
+  const slipNextVisit = ((draft ?? lastVisit) as { follow_up_date?: number | null } | null)?.follow_up_date
+
   const handleInitDraft = useCallback(() => {
     if (!activePatient) return
     dispatch({ type: 'INIT_DRAFT', visitNumber: draft ? draft.visit_number : 1 })
@@ -70,13 +82,32 @@ function MedicineSlots({
               <span className="ml-2 text-sm text-muted font-medium">Visit #{draft.visit_number}</span>
             )}
           </div>
-          {!draft && (
+          <div className="flex items-center gap-2">
             <button
-              onClick={handleInitDraft}
-              className="text-sm bg-accent hover:bg-accent-hover text-panel px-3 py-2 rounded-lg font-semibold transition-colors shadow-sm"
+              onClick={() => setSlipOpen(true)}
+              disabled={slipMeds.length === 0}
+              className="text-sm bg-panel border-2 border-accent text-accent hover:bg-accent/10 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-2 rounded-lg font-semibold transition-colors"
             >
-              New Visit
+              Rx slip
             </button>
+            {!draft && (
+              <button
+                onClick={handleInitDraft}
+                className="text-sm bg-accent hover:bg-accent-hover text-panel px-3 py-2 rounded-lg font-semibold transition-colors shadow-sm"
+              >
+                New Visit
+              </button>
+            )}
+          </div>
+          {slipOpen && (
+            <PrescriptionSlip
+              patientName={activePatient.name}
+              medicines={slipMeds}
+              date={slipDate}
+              phone={slipPhone}
+              nextVisit={slipNextVisit}
+              onClose={() => setSlipOpen(false)}
+            />
           )}
         </div>
       ) : (
