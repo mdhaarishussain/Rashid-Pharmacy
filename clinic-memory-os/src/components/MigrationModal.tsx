@@ -3,6 +3,7 @@ import { db, isLive } from '../db/db'
 import type { Patient, MedicineEntry } from '../db/db'
 import { MEDICINES, getMedicinePotencies, isDropPotency, type MedicineType } from '../data/medicines'
 import { addToIndex } from '../search/searchEngine'
+import A11yDialog from './A11yDialog'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -78,6 +79,7 @@ function MedInput({
             onFocus={() => setOpen(true)}
             onBlur={() => setTimeout(() => setOpen(false), 150)}
             placeholder="Medicine name or abbr…"
+            aria-label="Medicine name"
             className="w-full bg-surface border border-border rounded-lg px-2.5 py-2 text-sm text-primary focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
           />
           {open && suggestions.length > 0 && (
@@ -95,7 +97,7 @@ function MedInput({
                   }}
                   className="w-full flex items-center gap-2 px-3 py-2 hover:bg-card text-left transition-colors"
                 >
-                  <span className="text-xs font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded w-10 text-center shrink-0">{s.abbr}</span>
+                  <span className="text-sm font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded w-11 text-center shrink-0">{s.abbr}</span>
                   <span className="text-sm text-primary">{s.name}</span>
                 </button>
               ))}
@@ -105,6 +107,7 @@ function MedInput({
 
         {/* Potency — type-appropriate options */}
         <select
+          aria-label="Potency"
           value={value.potency}
           onChange={(e) => onChange({ ...value, potency: e.target.value })}
           className="bg-surface border border-border rounded-lg px-2 py-2 text-sm text-primary focus:outline-none focus:border-accent"
@@ -118,9 +121,10 @@ function MedInput({
       {/* Dosage row */}
       <div className="flex gap-1.5 items-center flex-wrap pl-1">
         <select
+          aria-label="Frequency"
           value={value.freq ?? ''}
           onChange={(e) => onChange({ ...value, freq: e.target.value || undefined })}
-          className="bg-surface border border-border rounded-md px-1.5 py-1 text-xs text-primary focus:outline-none focus:border-accent"
+          className="bg-surface border border-border rounded-md px-1.5 py-1 text-sm text-primary focus:outline-none focus:border-accent"
         >
           <option value="">Freq—</option>
           <option value="OD">OD</option>
@@ -130,9 +134,10 @@ function MedInput({
           <option value="HS">HS</option>
         </select>
         <select
+          aria-label="Before or after food"
           value={value.food ?? ''}
           onChange={(e) => onChange({ ...value, food: e.target.value || undefined })}
-          className="bg-surface border border-border rounded-md px-1.5 py-1 text-xs text-primary focus:outline-none focus:border-accent"
+          className="bg-surface border border-border rounded-md px-1.5 py-1 text-sm text-primary focus:outline-none focus:border-accent"
         >
           <option value="">—</option>
           <option value="AC">AC</option>
@@ -142,20 +147,22 @@ function MedInput({
           type="number"
           min={1} max={30}
           placeholder="Days"
+          aria-label="Days"
           value={value.days ?? ''}
           onChange={(e) => onChange({ ...value, days: Number(e.target.value) || undefined })}
-          className="w-14 bg-surface border border-border rounded-md px-1.5 py-1 text-xs text-primary focus:outline-none focus:border-accent text-center"
+          className="w-16 bg-surface border border-border rounded-md px-1.5 py-1 text-sm text-primary focus:outline-none focus:border-accent text-center"
         />
         <input
           type="number"
           min={1}
           placeholder={isTincture ? 'Drops' : 'Pills'}
+          aria-label={isTincture ? 'Drops' : 'Pills'}
           value={value.qty ?? ''}
           onChange={(e) => onChange({ ...value, qty: Number(e.target.value) || undefined })}
-          className="w-14 bg-surface border border-border rounded-md px-1.5 py-1 text-xs text-primary focus:outline-none focus:border-accent text-center"
+          className="w-16 bg-surface border border-border rounded-md px-1.5 py-1 text-sm text-primary focus:outline-none focus:border-accent text-center"
         />
         {(value.freq || value.food || value.days || value.qty) && (
-          <span className="text-xs text-muted font-mono">
+          <span className="text-sm text-muted font-mono">
             {[value.freq, value.food, value.days && `${value.days}d`, value.qty && `${value.qty}${isTincture ? '💧' : 'p'}`].filter(Boolean).join(' · ')}
           </span>
         )}
@@ -205,6 +212,7 @@ function VisitForm({
         <div className="flex items-center gap-2">
           <input
             type="date"
+            aria-label={`Visit ${index + 1} date`}
             value={visit.date}
             onChange={(e) => setField('date', e.target.value)}
             className="bg-surface border border-border rounded-lg px-2 py-1.5 text-sm text-primary focus:outline-none focus:border-accent"
@@ -212,10 +220,11 @@ function VisitForm({
           {total > 1 && (
             <button
               onClick={onRemove}
-              className="text-muted hover:text-danger transition-colors"
+              className="text-muted hover:text-danger transition-colors p-1.5"
               title="Remove this visit"
+              aria-label={`Remove visit ${index + 1}`}
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
             </button>
@@ -226,7 +235,7 @@ function VisitForm({
       <div className="px-4 py-3 space-y-3 bg-panel">
         {/* Medicines */}
         <div>
-          <div className="text-xs font-bold text-muted uppercase tracking-wider mb-2">Medicines</div>
+          <div className="text-sm font-bold text-muted uppercase tracking-wider mb-2">Medicines</div>
           <div className="space-y-2">
             {visit.medicines.map((m, i) => (
               <div key={i} className="flex items-start gap-1.5">
@@ -236,9 +245,10 @@ function VisitForm({
                 {visit.medicines.length > 1 && (
                   <button
                     onClick={() => removeMed(i)}
-                    className="text-muted hover:text-danger shrink-0 transition-colors mt-2.5"
+                    className="text-muted hover:text-danger shrink-0 transition-colors mt-1.5 p-1.5"
+                    aria-label={`Remove medicine ${i + 1}`}
                   >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
@@ -248,7 +258,7 @@ function VisitForm({
           </div>
           <button
             onClick={addMed}
-            className="mt-2 text-xs text-accent hover:text-accent-hover font-semibold"
+            className="mt-2 text-sm text-accent hover:text-accent-hover font-semibold"
           >
             + Add medicine
           </button>
@@ -256,8 +266,9 @@ function VisitForm({
 
         {/* Symptoms */}
         <div>
-          <label className="text-xs font-bold text-muted uppercase tracking-wider mb-1 block">Symptoms / Notes</label>
+          <label htmlFor={`sym-${visit.id}`} className="text-sm font-bold text-muted uppercase tracking-wider mb-1 block">Symptoms / Notes</label>
           <textarea
+            id={`sym-${visit.id}`}
             value={visit.symptoms}
             onChange={(e) => setField('symptoms', e.target.value)}
             rows={2}
@@ -269,8 +280,9 @@ function VisitForm({
         {/* Payment */}
         <div className="grid grid-cols-3 gap-2">
           <div>
-            <label className="text-xs text-muted mb-1 block">Fee (₹)</label>
+            <label htmlFor={`fee-${visit.id}`} className="text-sm text-muted mb-1 block">Fee (₹)</label>
             <input
+              id={`fee-${visit.id}`}
               type="number" min={0} inputMode="numeric"
               value={visit.feeTotal || ''}
               onChange={(e) => setField('feeTotal', Number(e.target.value) || 0)}
@@ -279,8 +291,9 @@ function VisitForm({
             />
           </div>
           <div>
-            <label className="text-xs text-muted mb-1 block">Paid (₹)</label>
+            <label htmlFor={`paid-${visit.id}`} className="text-sm text-muted mb-1 block">Paid (₹)</label>
             <input
+              id={`paid-${visit.id}`}
               type="number" min={0} inputMode="numeric"
               value={visit.amountPaid || ''}
               onChange={(e) => setField('amountPaid', Number(e.target.value) || 0)}
@@ -289,9 +302,9 @@ function VisitForm({
             />
           </div>
           <div>
-            <label className="text-xs text-muted mb-1 block">Due (₹)</label>
+            <div className="text-sm text-muted mb-1 block">Due (₹)</div>
             <div className={`w-full rounded-lg px-2.5 py-2 text-sm font-bold text-right ${
-              due > 0 ? 'bg-warning/10 text-warning' : due < 0 ? 'bg-danger/10 text-danger' : 'bg-success/10 text-success'
+              due > 0 ? 'bg-warning/10 text-amber-800' : due < 0 ? 'bg-danger/10 text-red-700' : 'bg-success/10 text-green-800'
             }`}>
               {due}
             </div>
@@ -416,13 +429,13 @@ export default function MigrationModal({ onClose }: Props) {
   if (savedCount !== null) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-primary/40 backdrop-blur-sm">
-        <div className="bg-panel rounded-2xl shadow-2xl border border-border p-8 text-center max-w-sm mx-4">
+        <A11yDialog onClose={onClose} labelledBy="migration-done-title" className="bg-panel rounded-2xl shadow-2xl border border-border p-8 text-center max-w-sm mx-4">
           <div className="w-16 h-16 bg-success/20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-8 h-8 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <div className="text-xl font-bold text-primary mb-2">Imported Successfully</div>
+          <div id="migration-done-title" className="text-xl font-bold text-primary mb-2">Imported Successfully</div>
           <div className="text-muted mb-6">{savedCount} visit{savedCount !== 1 ? 's' : ''} added to history.</div>
           <button
             onClick={onClose}
@@ -430,7 +443,7 @@ export default function MigrationModal({ onClose }: Props) {
           >
             Done
           </button>
-        </div>
+        </A11yDialog>
       </div>
     )
   }
@@ -441,18 +454,18 @@ export default function MigrationModal({ onClose }: Props) {
       className="fixed inset-0 z-50 flex items-start justify-center bg-primary/40 backdrop-blur-sm overflow-y-auto py-6"
       onClick={(e) => { if (e.target === overlayRef.current) onClose() }}
     >
-      <div className="bg-panel rounded-2xl shadow-2xl border border-border w-full max-w-2xl mx-4 overflow-hidden">
+      <A11yDialog onClose={onClose} labelledBy="migration-title" className="bg-panel rounded-2xl shadow-2xl border border-border w-full max-w-2xl mx-4 overflow-hidden">
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 bg-accent text-panel">
           <div className="flex items-center gap-2.5">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
             </svg>
-            <span className="font-bold text-lg">Import Patient History</span>
+            <span id="migration-title" className="font-bold text-lg">Import Patient History</span>
           </div>
-          <button onClick={onClose} className="text-panel/70 hover:text-panel transition-colors">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <button onClick={onClose} className="focus-on-accent text-panel hover:text-panel/80 transition-colors p-1" aria-label="Close import dialog">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -470,6 +483,7 @@ export default function MigrationModal({ onClose }: Props) {
             <div className="flex gap-2 mb-3">
               <button
                 onClick={() => setMode('select')}
+                aria-pressed={mode === 'select'}
                 className={`flex-1 py-2.5 rounded-xl font-semibold text-sm border transition-colors ${
                   mode === 'select' ? 'bg-accent text-panel border-accent' : 'bg-surface text-muted border-border hover:border-accent'
                 }`}
@@ -478,6 +492,7 @@ export default function MigrationModal({ onClose }: Props) {
               </button>
               <button
                 onClick={() => setMode('new')}
+                aria-pressed={mode === 'new'}
                 className={`flex-1 py-2.5 rounded-xl font-semibold text-sm border transition-colors ${
                   mode === 'new' ? 'bg-accent text-panel border-accent' : 'bg-surface text-muted border-border hover:border-accent'
                 }`}
@@ -493,6 +508,8 @@ export default function MigrationModal({ onClose }: Props) {
                   value={patientQuery}
                   onChange={(e) => setPatientQuery(e.target.value)}
                   placeholder="Search patient name…"
+                  aria-label="Search patient name"
+                  data-autofocus
                   className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-primary focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
                 />
                 <div className="max-h-40 overflow-y-auto border border-border rounded-xl divide-y divide-border">
@@ -502,6 +519,7 @@ export default function MigrationModal({ onClose }: Props) {
                     <button
                       key={p.id}
                       onClick={() => setSelectedPatient(p)}
+                      aria-pressed={selectedPatient?.id === p.id}
                       className={`w-full flex items-center gap-2 px-4 py-2.5 text-left transition-colors ${
                         selectedPatient?.id === p.id
                           ? 'bg-accent/10 text-accent font-semibold'
@@ -509,12 +527,12 @@ export default function MigrationModal({ onClose }: Props) {
                       }`}
                     >
                       {selectedPatient?.id === p.id && (
-                        <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                         </svg>
                       )}
                       <span className="text-sm">{p.name}</span>
-                      {p.quick_note && <span className="text-xs text-muted truncate">{p.quick_note}</span>}
+                      {p.quick_note && <span className="text-sm text-muted truncate">{p.quick_note}</span>}
                     </button>
                   ))}
                 </div>
@@ -525,6 +543,8 @@ export default function MigrationModal({ onClose }: Props) {
                 value={newPatientName}
                 onChange={(e) => setNewPatientName(e.target.value)}
                 placeholder="Patient full name…"
+                aria-label="New patient full name"
+                data-autofocus
                 className="w-full bg-surface border-2 border-accent rounded-xl px-4 py-2.5 text-sm text-primary focus:outline-none"
                 autoFocus
               />
@@ -536,7 +556,7 @@ export default function MigrationModal({ onClose }: Props) {
             <div className="text-sm font-bold text-primary mb-3 flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-accent text-panel flex items-center justify-center text-xs font-black">2</span>
               Enter Past Visits
-              <span className="ml-auto text-xs text-muted font-normal">Visits will be sorted by date automatically</span>
+              <span className="ml-auto text-sm text-muted font-normal">Visits will be sorted by date automatically</span>
             </div>
 
             <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
@@ -562,7 +582,7 @@ export default function MigrationModal({ onClose }: Props) {
 
           {/* Error */}
           {error && (
-            <div className="bg-danger/10 border border-danger/30 text-danger text-sm rounded-xl px-4 py-3">
+            <div role="alert" className="bg-danger/10 border border-danger/30 text-red-700 text-sm rounded-xl px-4 py-3">
               {error}
             </div>
           )}
@@ -576,7 +596,7 @@ export default function MigrationModal({ onClose }: Props) {
             {saving ? 'Saving…' : `Save ${visits.length} Visit${visits.length !== 1 ? 's' : ''} to History`}
           </button>
         </div>
-      </div>
+      </A11yDialog>
     </div>
   )
 }

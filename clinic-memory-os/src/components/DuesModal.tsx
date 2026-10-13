@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { db, getVisitsByPatient } from '../db/db'
 import type { Visit } from '../db/db'
 import type { AppAction } from '../state/useAppState'
+import A11yDialog from './A11yDialog'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -90,18 +91,19 @@ export default function DuesModal({ patientId, patientName, onClose, dispatch }:
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-primary/60 backdrop-blur-sm" />
-      <div
+      <A11yDialog
+        onClose={onClose}
+        labelledBy="dues-title"
         className="relative z-10 bg-panel rounded-2xl shadow-2xl border border-border w-full max-w-lg mx-4 overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className={`px-5 py-4 flex items-center justify-between ${totalDue > 0 ? 'bg-gradient-to-r from-warning to-warning/80' : 'bg-gradient-to-r from-success to-success/80'}`}>
-          <div>
+        <div className={`px-5 py-4 flex items-center justify-between ${totalDue > 0 ? 'bg-gradient-to-r from-warning to-warning' : 'bg-gradient-to-r from-success to-success'}`}>
+          <div id="dues-title">
             <div className="text-white font-bold text-lg">{patientName}</div>
-            <div className="text-white/80 text-sm">Outstanding Dues Ledger</div>
+            <div className="text-white text-sm">Outstanding Dues Ledger</div>
           </div>
           <div className="text-right">
-            <div className="text-white/70 text-xs">Remaining Due</div>
+            <div className="text-white text-sm">Remaining Due</div>
             <div className="text-white font-black text-2xl">₹{totalDue}</div>
           </div>
         </div>
@@ -110,8 +112,8 @@ export default function DuesModal({ patientId, patientName, onClose, dispatch }:
         <div className="max-h-80 overflow-y-auto divide-y divide-border">
           {visitsWithDues.length === 0 ? (
             <div className="p-10 text-center">
-              <div className="text-4xl mb-2">✓</div>
-              <div className="text-success font-bold text-base">No outstanding dues!</div>
+              <div className="text-4xl mb-2" aria-hidden="true">✓</div>
+              <div className="text-green-800 font-bold text-base">No outstanding dues!</div>
               <div className="text-muted text-sm mt-1">All visits are fully settled.</div>
             </div>
           ) : (
@@ -130,20 +132,21 @@ export default function DuesModal({ patientId, patientName, onClose, dispatch }:
                   <div className="flex items-center gap-3">
                     <div className="flex-1 grid grid-cols-3 gap-2 text-center text-sm">
                       <div className="bg-surface rounded-lg py-2">
-                        <div className="text-muted text-xs mb-0.5">Fee</div>
+                        <div className="text-muted text-sm mb-0.5">Fee</div>
                         <div className="font-bold text-primary">₹{v.fee_total}</div>
                       </div>
                       <div className={`rounded-lg py-2 ${remaining > 0 ? 'bg-danger/10' : 'bg-success/10'}`}>
-                        <div className="text-muted text-xs mb-0.5">Remaining</div>
-                        <div className={`font-bold ${remaining > 0 ? 'text-danger' : 'text-success'}`}>
+                        <div className="text-muted text-sm mb-0.5">Remaining</div>
+                        <div className={`font-bold ${remaining > 0 ? 'text-red-700' : 'text-green-800'}`}>
                           ₹{remaining}
                         </div>
                       </div>
                       <div className="bg-surface rounded-lg py-2 px-1">
-                        <div className="text-muted text-xs mb-0.5">Mark Paid</div>
+                        <div className="text-muted text-sm mb-0.5">Mark Paid</div>
                         <div className="relative">
-                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted text-xs">₹</span>
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted text-sm" aria-hidden="true">₹</span>
                           <input
+                            aria-label={`Amount paid for visit on ${formatDate(v.date)}`}
                             type="number"
                             min={0}
                             max={v.fee_total}
@@ -154,7 +157,7 @@ export default function DuesModal({ patientId, patientName, onClose, dispatch }:
                                 [v.id!]: Math.min(Number(e.target.value) || 0, v.fee_total),
                               }))
                             }
-                            className="w-full border border-border rounded-lg pl-5 pr-1 py-1 text-sm font-bold text-primary focus:outline-none focus:border-accent bg-panel"
+                            className="w-full border border-border rounded-lg pl-6 pr-1 py-1 text-sm font-bold text-primary focus:outline-none focus:border-accent bg-panel"
                             placeholder="0"
                           />
                         </div>
@@ -164,7 +167,8 @@ export default function DuesModal({ patientId, patientName, onClose, dispatch }:
                       onClick={() =>
                         setPayments((p) => ({ ...p, [v.id!]: v.fee_total }))
                       }
-                      className="text-xs bg-success/15 hover:bg-success/25 text-success border border-success/30 px-2 py-2.5 rounded-lg font-bold transition-colors shrink-0"
+                      aria-label={`Mark visit on ${formatDate(v.date)} as paid in full`}
+                      className="text-sm bg-success/15 hover:bg-success/25 text-green-800 border border-success/30 px-2 py-2.5 rounded-lg font-bold transition-colors shrink-0"
                     >
                       Full
                     </button>
@@ -179,11 +183,11 @@ export default function DuesModal({ patientId, patientName, onClose, dispatch }:
         {visitsWithDues.length > 1 && (
           <div className="px-5 py-3 bg-card border-t border-border flex items-center justify-between">
             <span className="text-sm text-muted font-medium">
-              Original: <span className="font-bold text-warning">₹{totalOriginalDue}</span>
+              Original: <span className="font-bold text-amber-800">₹{totalOriginalDue}</span>
             </span>
             <button
               onClick={handlePayAll}
-              className="text-sm bg-success/15 hover:bg-success/25 text-success border border-success/30 px-3 py-1.5 rounded-lg font-bold transition-colors"
+              className="text-sm bg-success/15 hover:bg-success/25 text-green-800 border border-success/30 px-3 py-1.5 rounded-lg font-bold transition-colors"
             >
               Settle All ₹{totalOriginalDue}
             </button>
@@ -206,7 +210,7 @@ export default function DuesModal({ patientId, patientName, onClose, dispatch }:
             {saved ? '✓ Saved!' : saving ? 'Saving…' : 'Save Payments'}
           </button>
         </div>
-      </div>
+      </A11yDialog>
     </div>
   )
 }

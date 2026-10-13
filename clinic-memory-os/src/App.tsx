@@ -4,6 +4,8 @@ import { seedDemoData } from './db/seed'
 import { buildIndex, search } from './search/searchEngine'
 import { useAppState } from './state/useAppState'
 import { useAutosave } from './hooks/useAutosave'
+import { useDialogA11y } from './hooks/useDialogA11y'
+import TextSizeControl from './components/TextSizeControl'
 import { loadDraftFromStorage } from './hooks/useAutosave'
 import TimelinePanel from './components/TimelinePanel'
 import MedicineCockpit from './components/MedicineCockpit'
@@ -104,6 +106,7 @@ function TutorialModal({ onClose }: { onClose: () => void }) {
   const [dims, setDims] = useState({ w: window.innerWidth, h: window.innerHeight })
   const total = TUTORIAL_STEPS.length
   const current = TUTORIAL_STEPS[step]
+  const cardRef = useDialogA11y<HTMLDivElement>(onClose)
 
   // Measure the spotlight target
   useEffect(() => {
@@ -140,6 +143,7 @@ function TutorialModal({ onClose }: { onClose: () => void }) {
       {/* SVG overlay — dark everywhere, transparent hole over target */}
       <svg
         style={{ position: 'fixed', inset: 0, zIndex: 50, pointerEvents: 'none' }}
+        aria-hidden="true"
         width={W} height={H}
         xmlns="http://www.w3.org/2000/svg"
       >
@@ -182,7 +186,11 @@ function TutorialModal({ onClose }: { onClose: () => void }) {
 
       {/* Tutorial info card */}
       <div
-        className="fixed z-[52] w-[22rem] bg-panel rounded-2xl shadow-2xl border-2 border-accent/40 overflow-hidden"
+        ref={cardRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="tutorial-title"
+        className="fixed z-[52] w-[22rem] max-w-[calc(100vw-1rem)] bg-panel rounded-2xl shadow-2xl border-2 border-accent/40 overflow-hidden"
         style={{
           left: '50%',
           transform: 'translateX(-50%)',
@@ -191,16 +199,16 @@ function TutorialModal({ onClose }: { onClose: () => void }) {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Step header */}
-        <div className="bg-gradient-to-r from-accent to-accent-hover px-5 py-4 flex items-center gap-3">
-          <div className="w-11 h-11 rounded-full bg-white/25 flex items-center justify-center font-black text-2xl text-white shrink-0 select-none">
+        <div className="bg-gradient-to-r from-accent to-accent px-5 py-4 flex items-center gap-3">
+          <div className="w-11 h-11 rounded-full bg-white/25 flex items-center justify-center font-black text-2xl text-white shrink-0 select-none" aria-hidden="true">
             {step + 1}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-white/70 text-[11px] font-medium tracking-wide uppercase">Step {step + 1} of {total}</div>
-            <div className="text-white font-bold text-base leading-snug">{current.title}</div>
+            <div className="text-white text-xs font-medium tracking-wide uppercase">Step {step + 1} of {total}</div>
+            <div id="tutorial-title" className="text-white font-bold text-base leading-snug">{current.title}</div>
           </div>
-          <button onClick={onClose} className="text-white/60 hover:text-white transition-colors shrink-0" title="Close (Esc)">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <button onClick={onClose} className="focus-on-accent text-white hover:text-white/80 transition-colors shrink-0" title="Close (Esc)" aria-label="Close tutorial">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -208,7 +216,7 @@ function TutorialModal({ onClose }: { onClose: () => void }) {
 
         <div className="px-5 pt-4 pb-5">
           {/* Description */}
-          <p className="text-primary text-sm leading-relaxed mb-5">{current.body}</p>
+          <p className="text-primary text-sm leading-relaxed mb-5" aria-live="polite">{current.body}</p>
 
           {/* Pill progress indicators */}
           <div className="flex justify-center items-center gap-1.5 mb-5">
@@ -220,6 +228,8 @@ function TutorialModal({ onClose }: { onClose: () => void }) {
                   i === step ? 'bg-accent w-7' : 'bg-border hover:bg-muted w-2.5'
                 }`}
                 title={`Step ${i + 1}`}
+                aria-label={`Go to step ${i + 1} of ${total}`}
+                aria-current={i === step ? 'step' : undefined}
               />
             ))}
           </div>
@@ -231,7 +241,7 @@ function TutorialModal({ onClose }: { onClose: () => void }) {
               disabled={step === 0}
               className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-card border border-border text-sm font-semibold text-primary disabled:opacity-25 hover:bg-card/80 transition-colors"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
               </svg>
               Prev
@@ -242,24 +252,24 @@ function TutorialModal({ onClose }: { onClose: () => void }) {
                 className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-accent hover:bg-accent-hover text-panel font-bold text-sm transition-colors shadow-sm"
               >
                 Next
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
                 </svg>
               </button>
             ) : (
               <button
                 onClick={onClose}
-                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-success hover:bg-success/80 text-white font-bold text-sm transition-colors shadow-sm"
+                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-success hover:bg-success/90 text-white font-bold text-sm transition-colors shadow-sm"
               >
                 Got it!
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                 </svg>
               </button>
             )}
           </div>
 
-          <div className="flex justify-center gap-1 mt-3 text-[11px] text-muted">
+          <div className="flex justify-center gap-1 mt-3 text-xs text-muted">
             <kbd className="bg-card border border-border rounded px-1.5 py-0.5 font-mono">←</kbd>
             <kbd className="bg-card border border-border rounded px-1.5 py-0.5 font-mono">→</kbd>
             <span className="ml-1">navigate</span>
@@ -447,11 +457,11 @@ export default function App() {
       {showBackup && <BackupModal onClose={() => setShowBackup(false)} onRestored={refreshIndex} />}
 
       {/* ── Top header bar ─────────────────────────────────────────────────── */}
-      <div className="shrink-0 flex items-center justify-between px-5 py-2.5 bg-panel border-b-2 border-border shadow-sm">
+      <div role="banner" className="shrink-0 flex flex-wrap items-center justify-between gap-y-2 px-5 py-2.5 bg-panel border-b-2 border-border shadow-sm">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-accent rounded-lg flex items-center justify-center shrink-0 shadow-sm">
             {/* Homoeopathic bottle icon */}
-            <svg className="w-5 h-5 text-panel" viewBox="0 0 24 24" fill="currentColor">
+            <svg className="w-5 h-5 text-panel" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               {/* Cap */}
               <rect x="9.5" y="2" width="5" height="2.5" rx="1.1"/>
               {/* Neck (trapezoid) */}
@@ -465,11 +475,12 @@ export default function App() {
             </svg>
           </div>
           <div className="flex flex-col leading-tight">
-            <span className="font-bold text-primary text-lg tracking-tight">Rashid Pharmacy</span>
-            <span className="text-muted text-xs font-medium">Dr. Saood Ahmad · Consultation</span>
+            <span role="heading" aria-level={1} className="font-bold text-primary text-lg tracking-tight">Rashid Pharmacy</span>
+            <span className="text-muted text-sm font-medium">Dr. Saood Ahmad · Consultation</span>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 min-w-0 flex-1">
+          <TextSizeControl />
           <LiveClock />
           <SyncStatus
             connected={syncConnected}
@@ -483,6 +494,7 @@ export default function App() {
             onClick={() => setShowBackup(true)}
             className="flex items-center gap-1.5 bg-card hover:bg-accent/20 hover:text-accent border border-border hover:border-accent/40 text-muted px-3 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm"
             title="Download or restore a backup of all records"
+            aria-label="Backup"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -494,8 +506,9 @@ export default function App() {
             onClick={() => setShowMigration(true)}
             className="flex items-center gap-1.5 bg-card hover:bg-success/20 hover:text-success border border-border hover:border-success/40 text-muted px-3 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm"
             title="Import past patient visits"
+            aria-label="Import History"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
             </svg>
             <span className="hidden sm:inline">Import History</span>
@@ -504,8 +517,9 @@ export default function App() {
             onClick={() => setShowTutorial(true)}
             className="flex items-center gap-1.5 bg-card hover:bg-accent hover:text-panel border border-border text-muted hover:border-accent px-3 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm"
             title="How to use this system"
+            aria-label="How to Use"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <span className="hidden sm:inline">How to Use</span>
@@ -521,23 +535,29 @@ export default function App() {
       )}
 
       {/* ── Three panel layout ──────────────────────────────────────────────── */}
-      <div className="flex flex-1 overflow-hidden flex-col lg:flex-row">
+      <div role="main" className="flex flex-1 overflow-hidden flex-col lg:flex-row">
         {/* Mobile tab bar */}
-        <div className="lg:hidden flex shrink-0 border-b border-border bg-card">
+        <div role="tablist" aria-label="Panels" className="lg:hidden flex shrink-0 border-b border-border bg-card">
           <button
             onClick={() => setActiveMobileTab('patients')}
+            role="tab"
+            aria-selected={'patients' === activeMobileTab}
             className={`flex-1 py-3 px-2 text-sm font-semibold transition-colors border-b-2 ${'patients' === activeMobileTab ? 'border-accent text-accent' : 'border-transparent text-muted hover:text-primary'}`}
           >
             Patients
           </button>
           <button
             onClick={() => setActiveMobileTab('medicines')}
+            role="tab"
+            aria-selected={'medicines' === activeMobileTab}
             className={`flex-1 py-3 px-2 text-sm font-semibold transition-colors border-b-2 ${'medicines' === activeMobileTab ? 'border-accent text-accent' : 'border-transparent text-muted hover:text-primary'}`}
           >
             Medicines
           </button>
           <button
             onClick={() => setActiveMobileTab('payment')}
+            role="tab"
+            aria-selected={'payment' === activeMobileTab}
             className={`flex-1 py-3 px-2 text-sm font-semibold transition-colors border-b-2 ${'payment' === activeMobileTab ? 'border-accent text-accent' : 'border-transparent text-muted hover:text-primary'}`}
           >
             Payment
@@ -546,7 +566,7 @@ export default function App() {
 
         {/* LEFT — Timeline Panel (hidden on mobile except when tab is "patients") */}
         {(activeMobileTab === 'patients' || window.innerWidth >= 1024) && (
-          <div className="hidden lg:flex lg:flex-col shrink-0" style={{ width: '22%', minWidth: 200 }}>
+          <div className="hidden lg:flex lg:flex-col shrink-0" style={{ width: '22%', minWidth: '12.5rem' }}>
             <TimelinePanel
               searchQuery={state.searchQuery}
               searchResults={state.searchResults}
@@ -583,7 +603,7 @@ export default function App() {
 
         {/* RIGHT — Closure Panel (hidden on mobile except when tab is "payment") */}
         {(activeMobileTab === 'payment' || window.innerWidth >= 1024) && (
-          <div className="hidden lg:flex lg:flex-col shrink-0" style={{ width: '22%', minWidth: 200 }}>
+          <div className="hidden lg:flex lg:flex-col shrink-0" style={{ width: '22%', minWidth: '12.5rem' }}>
             <ClosurePanel
               draft={state.draft}
               activePatient={state.activePatient}
